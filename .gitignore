@@ -1,0 +1,17 @@
+.env
+.env.local
+.env.production
+.env.development
+node_modules/
+npm-debug.log*
+dist/
+build/
+frontend/dist/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+logs/
+*.log
+coverage/
