@@ -21,6 +21,13 @@ const io = new Server(httpServer, {
   },
 });
 
+// Initialize Socket.io service
+const { initializeSocket, setIO } = require("./services/socketService");
+const taskController = require("./controllers/taskController");
+
+// Initialize Socket.io connections
+initializeSocket(io);
+
 // connectedUsers maps userId -> socket.id for targeted notifications
 const connectedUsers = {};
 

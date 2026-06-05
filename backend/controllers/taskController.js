@@ -1,8 +1,9 @@
 // backend/controllers/taskController.js
-// Handles task CRUD operations: create, read, update, delete, assign
+// Handles task CRUD operations with real-time Socket.io notifications
 // Member 2 (Subanya)
 
 const { PrismaClient } = require("@prisma/client");
+
 const prisma = new PrismaClient();
 
 // ════════ POST /api/tasks ════════════════════════════════════════════════════
@@ -35,7 +36,7 @@ const createTask = async (req, res) => {
     if (dueDate) {
       const dueDateObj = new Date(dueDate);
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Set to start of today for fair comparison
+      today.setHours(0, 0, 0, 0);
 
       if (dueDateObj < today) {
         return res.status(400).json({
@@ -51,7 +52,7 @@ const createTask = async (req, res) => {
         title: title.trim(),
         description: description ? description.trim() : null,
         priority: priority || "MEDIUM",
-        status: "TODO", // Default status
+        status: "TODO",
         dueDate: dueDate ? new Date(dueDate) : null,
         createdById: userId,
       },
@@ -111,7 +112,7 @@ const getTasks = async (req, res) => {
             },
           },
         },
-        orderBy: { createdAt: "desc" }, // Most recent first
+        orderBy: { createdAt: "desc" },
       });
     } else {
       // Collaborators see only tasks assigned to them
@@ -355,11 +356,14 @@ const deleteTask = async (req, res) => {
 // Assign a task to a user
 // Only PROJECT_MANAGER can assign tasks
 // Body: { userId }
+// Emits: task_assigned notification to the assigned user via Socket.io
 // Returns: { message, assignment }
 const assignTask = async (req, res) => {
   try {
     const { id } = req.params;
     const { userId } = req.body;
+    const io = req.io; // Socket.io instance from server.js
+    const connectedUsers = req.connectedUsers; // Connected users map from server.js
 
     // Validate task ID
     const taskId = parseInt(id);
@@ -428,6 +432,24 @@ const assignTask = async (req, res) => {
       },
     });
 
+    // ════════ Emit Socket.io Real-Time Notification ════════════════════
+    // Send notification to the assigned user if they're connected
+    if (io && connectedUsers[userId]) {
+      io.to(connectedUsers[userId]).emit("task_assigned", {
+        message: `You have been assigned a new task: "${task.title}"`,
+        task: {
+          id: task.id,
+          title: task.title,
+          priority: task.priority,
+          dueDate: task.dueDate,
+        },
+        timestamp: new Date(),
+      });
+      console.log(`✅ Real-time notification sent to user ${userId}: Task assigned`);
+    } else {
+      console.log(`⚠️ User ${userId} is not connected. Notification not sent.`);
+    }
+
     return res.status(201).json({
       message: "Task assigned successfully",
       assignment,
@@ -442,8 +464,10 @@ const assignTask = async (req, res) => {
 };
 
 // ════════ PUT /api/tasks/:id/status ════════════════════════════════════════
-// Update task status (can be done by PROJECT_MANAGER or assigned COLLABORATOR)
+// Update task status
+// Can be done by PROJECT_MANAGER or assigned COLLABORATOR
 // Body: { status }
+// Emits: task_status_changed notification to all assigned users via Socket.io
 // Status must be: TODO, IN_PROGRESS, or COMPLETED
 // Returns: { message, task }
 const updateTaskStatus = async (req, res) => {
@@ -452,6 +476,8 @@ const updateTaskStatus = async (req, res) => {
     const { status } = req.body;
     const userId = req.user.id;
     const userRole = req.user.role;
+    const io = req.io; // Socket.io instance from server.js
+    const connectedUsers = req.connectedUsers; // Connected users map from server.js
 
     // Validate task ID
     const taskId = parseInt(id);
@@ -512,6 +538,25 @@ const updateTaskStatus = async (req, res) => {
         comments: true,
       },
     });
+
+    // ════════ Emit Socket.io Real-Time Notification ════════════════════
+    // Send notification to all assigned users
+    const assignedUserIds = updatedTask.assignments.map((a) => a.userId);
+    assignedUserIds.forEach((assignedUserId) => {
+      if (io && connectedUsers[assignedUserId]) {
+        io.to(connectedUsers[assignedUserId]).emit("task_status_changed", {
+          message: `Task "${updatedTask.title}" status changed to ${updatedTask.status}`,
+          task: {
+            id: updatedTask.id,
+            title: updatedTask.title,
+            status: updatedTask.status,
+            priority: updatedTask.priority,
+          },
+          timestamp: new Date(),
+        });
+      }
+    });
+    console.log(`✅ Real-time notifications sent: Task status changed to ${status}`);
 
     return res.status(200).json({
       message: "Task status updated successfully",
