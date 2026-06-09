@@ -9,6 +9,7 @@ const swaggerSpec = require("./swagger");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const taskRoutes = require("./routes/taskRoutes");
+const commentRoutes = require("./routes/commentRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 
 const app = express();
@@ -20,6 +21,13 @@ const io = new Server(httpServer, {
     methods: ["GET", "POST"],
   },
 });
+
+// Initialize Socket.io service
+const { initializeSocket, setIO } = require("./services/socketService");
+const taskController = require("./controllers/taskController");
+
+// Initialize Socket.io connections
+initializeSocket(io);
 
 // connectedUsers maps userId -> socket.id for targeted notifications
 const connectedUsers = {};
@@ -56,6 +64,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/tasks", taskRoutes);
+app.use("/api/tasks", commentRoutes);
 app.use("/api/notifications", notificationRoutes);
 
 app.get("/", (_req, res) => {

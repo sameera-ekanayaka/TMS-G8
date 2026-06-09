@@ -1,0 +1,334 @@
+// backend/controllers/userController.js
+// User management — Admin only (enforced in routes via authorizeRoles)
+// Member 1 (Sameera)
+
+const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
+const { PrismaClient } = require("@prisma/client");
+const { sendOnboardingEmail } = require("../services/emailService");
+
+const prisma = new PrismaClient();
+
+// ─── GET /api/users ───────────────────────────────────────────
+// Returns all users (excluding passwords)
+// Admin only
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        mustResetPassword: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.status(200).json({ users });
+  } catch (error) {
+    console.error("Get all users error:", error);
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to fetch users.",
+    });
+  }
+};
+
+// ─── GET /api/users/:id ───────────────────────────────────────
+// Returns a single user by ID
+// Admin only
+const getUserById = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        mustResetPassword: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: "User not found.",
+      });
+    }
+
+    return res.status(200).json({ user });
+  } catch (error) {
+    console.error("Get user by ID error:", error);
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to fetch user.",
+    });
+  }
+};
+
+// ─── POST /api/users ──────────────────────────────────────────
+// Admin creates a new user with a temporary password
+// Sends onboarding email with temp password
+// Body: { name, email, role }
+const createUser = async (req, res) => {
+  try {
+    const { name, email, role } = req.body;
+
+    // Validate required fields
+    if (!name || !email || !role) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "name, email, and role are required.",
+      });
+    }
+
+    // Validate role value
+    const validRoles = ["ADMIN", "PROJECT_MANAGER", "COLLABORATOR"];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: `role must be one of: ${validRoles.join(", ")}`,
+      });
+    }
+
+    // Check email is not already taken
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "A user with this email already exists.",
+      });
+    }
+
+    // Generate a random 10-character temporary password
+    const tempPassword = crypto.randomBytes(5).toString("hex"); // e.g. "a3f9c2d1b4"
+
+    // Hash the temp password before storing
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    // Create the user in DB
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role,
+        mustResetPassword: true, // forces password change on first login
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        mustResetPassword: true,
+        createdAt: true,
+      },
+    });
+
+    // Send onboarding email with temp password
+    // We wrap in try/catch so a failed email doesn't block the response
+    try {
+      await sendOnboardingEmail({
+        to: email,
+        name,
+        email,
+        tempPassword, // plain text — only time we use it
+        role,
+      });
+    } catch (emailError) {
+      // Log the error but still return success — user was created
+      console.error("Onboarding email failed:", emailError.message);
+    }
+
+    return res.status(201).json({
+      message: "User created successfully. Onboarding email sent.",
+      user: newUser,
+    });
+  } catch (error) {
+    console.error("Create user error:", error);
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to create user.",
+    });
+  }
+};
+
+// ─── PUT /api/users/:id ───────────────────────────────────────
+// Admin updates a user's name, email, or role
+// Body: { name?, email?, role? }
+const updateUser = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const { name, email, role } = req.body;
+
+    // At least one field must be provided
+    if (!name && !email && !role) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "Provide at least one field to update: name, email, or role.",
+      });
+    }
+
+    // Validate role if provided
+    const validRoles = ["ADMIN", "PROJECT_MANAGER", "COLLABORATOR"];
+    if (role && !validRoles.includes(role)) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: `role must be one of: ${validRoles.join(", ")}`,
+      });
+    }
+
+    // Check user exists
+    const existing = await prisma.user.findUnique({ where: { id: userId } });
+    if (!existing) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: "User not found.",
+      });
+    }
+
+    // If email is changing, make sure it's not taken
+    if (email && email !== existing.email) {
+      const emailTaken = await prisma.user.findUnique({ where: { email } });
+      if (emailTaken) {
+        return res.status(400).json({
+          error: "Validation Error",
+          message: "This email is already in use by another account.",
+        });
+      }
+    }
+
+    // Build update object with only provided fields
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    if (role) updateData.role = role;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    return res.status(200).json({
+      message: "User updated successfully.",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Update user error:", error);
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to update user.",
+    });
+  }
+};
+
+// ─── PATCH /api/users/:id/deactivate ─────────────────────────
+// Admin deactivates a user (soft delete — keeps data intact)
+// Deactivated users cannot log in
+const deactivateUser = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+
+    // Prevent admin from deactivating themselves
+    if (userId === req.user.id) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "You cannot deactivate your own account.",
+      });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: "User not found.",
+      });
+    }
+
+    if (!user.isActive) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "User is already deactivated.",
+      });
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { isActive: false },
+    });
+
+    return res.status(200).json({
+      message: "User deactivated successfully.",
+    });
+  } catch (error) {
+    console.error("Deactivate user error:", error);
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to deactivate user.",
+    });
+  }
+};
+
+// ─── PATCH /api/users/:id/activate ───────────────────────────
+// Admin re-activates a previously deactivated user
+const activateUser = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: "User not found.",
+      });
+    }
+
+    if (user.isActive) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "User is already active.",
+      });
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { isActive: true },
+    });
+
+    return res.status(200).json({
+      message: "User activated successfully.",
+    });
+  } catch (error) {
+    console.error("Activate user error:", error);
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to activate user.",
+    });
+  }
+};
+
+module.exports = {
+  getAllUsers,
+  getUserById,
+  createUser,
+  updateUser,
+  deactivateUser,
+  activateUser,
+};
