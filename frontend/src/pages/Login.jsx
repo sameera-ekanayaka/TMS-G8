@@ -42,7 +42,12 @@ export default function Login() {
       const { token, user } = response.data;
       login(token, user);
       navigate("/dashboard");
-    } catch (err) {
+    } 
+//     try {
+//   login("fake-token-123", { id: 1, name: "Ravindu", role: "ADMIN" });
+//   navigate("/dashboard");
+// }
+    catch (err) {
       const message = err.response?.data?.message || "Login failed. Please try again.";
       setError(message);
     } finally {
@@ -117,4 +122,5 @@ export default function Login() {
       </div>
     </div>
   );
+  
 }
