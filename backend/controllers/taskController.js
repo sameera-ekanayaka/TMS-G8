@@ -91,61 +91,62 @@ const getTasks = async (req, res) => {
   try {
     const userId = req.user.id;
     const userRole = req.user.role;
+    const { status, priority, sortBy, order } = req.query;
+
+    // Build filter object from query params
+    const filters = {};
+    if (status && ["TODO", "IN_PROGRESS", "COMPLETED"].includes(status)) {
+      filters.status = status;
+    }
+    if (priority && ["LOW", "MEDIUM", "HIGH"].includes(priority)) {
+      filters.priority = priority;
+    }
+
+    // Build sort object from query params
+    const validSortFields = ["createdAt", "dueDate", "priority", "status"];
+    const sortField = sortBy && validSortFields.includes(sortBy) ? sortBy : "createdAt";
+    const sortOrder = order === "asc" ? "asc" : "desc";
+    const orderBy = { [sortField]: sortOrder };
+
+    // Common include block
+    const includeBlock = {
+      createdBy: {
+        select: { id: true, name: true, email: true, role: true },
+      },
+      assignments: {
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+        },
+      },
+      comments: {
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+        },
+      },
+    };
 
     let tasks;
 
     if (userRole === "PROJECT_MANAGER" || userRole === "ADMIN") {
-      // Project Managers and Admins see all tasks
       tasks = await prisma.task.findMany({
-        include: {
-          createdBy: {
-            select: { id: true, name: true, email: true, role: true },
-          },
-          assignments: {
-            include: {
-              user: { select: { id: true, name: true, email: true } },
-            },
-          },
-          comments: {
-            include: {
-              user: { select: { id: true, name: true, email: true } },
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
+        where: filters,
+        include: includeBlock,
+        orderBy,
       });
     } else {
-      // Collaborators see only tasks assigned to them
       tasks = await prisma.task.findMany({
         where: {
+          ...filters,
           assignments: {
-            some: {
-              userId: userId,
-            },
+            some: { userId },
           },
         },
-        include: {
-          createdBy: {
-            select: { id: true, name: true, email: true, role: true },
-          },
-          assignments: {
-            include: {
-              user: { select: { id: true, name: true, email: true } },
-            },
-          },
-          comments: {
-            include: {
-              user: { select: { id: true, name: true, email: true } },
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
+        include: includeBlock,
+        orderBy,
       });
     }
 
-    return res.status(200).json({
-      tasks,
-    });
+    return res.status(200).json({ tasks });
   } catch (error) {
     console.error("Get tasks error:", error);
     return res.status(500).json({
@@ -361,8 +362,14 @@ const deleteTask = async (req, res) => {
 const assignTask = async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId } = req.body;
-    const io = req.io; // Socket.io instance from server.js
+    const userId = parseInt(req.body.userId);
+if (isNaN(userId)) {
+  return res.status(400).json({
+    error: "Validation Error",
+    message: "userId must be a valid number",
+  });
+}
+const io = req.io; // Socket.io instance from server.js
     const connectedUsers = req.connectedUsers; // Connected users map from server.js
 
     // Validate task ID
