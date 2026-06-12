@@ -84,8 +84,7 @@ router.get("/", protect, getUserNotifications);
  *       500:
  *         description: Internal server error
  */
-router.patch("/:id/read", protect, markNotificationAsRead);
-
+router.patch("/read-all", protect, markAllNotificationsAsRead);
 /**
  * @swagger
  * /api/notifications/read-all:
@@ -112,6 +111,6 @@ router.patch("/:id/read", protect, markNotificationAsRead);
  *       500:
  *         description: Internal server error
  */
-router.patch("/read-all", protect, markAllNotificationsAsRead);
-
+router.patch("/:id/read", protect, markNotificationAsRead);
 module.exports = router;
+
