@@ -11,8 +11,12 @@ export const authHeader = (token) => ({
 export const loginUser = (email, password) =>
   api.post("/api/auth/login", { email, password });
 
-export const resetPassword = (token, newPassword) =>
-  api.post("/api/auth/reset-password", { token, newPassword });
+export const resetPassword = (authToken, tempPassword, newPassword) =>
+  api.post(
+    "/api/auth/reset-password",
+    { tempPassword, newPassword },
+    authHeader(authToken)
+  );
 
 export const getUsers = (token) => api.get("/api/users", authHeader(token));
 export const createUser = (token, data) => api.post("/api/users", data, authHeader(token));
