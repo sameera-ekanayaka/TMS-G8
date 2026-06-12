@@ -97,12 +97,13 @@ const resetPassword = async (req, res) => {
     }
 
     // Password strength: minimum 8 characters
-    if (newPassword.length < 8) {
-      return res.status(400).json({
-        error: "Validation Error",
-        message: "New password must be at least 8 characters",
-      });
-    }
+    const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])(.{8,})$/;
+if (!passwordRegex.test(newPassword)) {
+  return res.status(400).json({
+    error: "Validation Error",
+    message: "Password must be at least 8 characters and include an uppercase letter, a number, and a special character (!@#$%^&*)",
+  });
+}
 
     // Fetch user from DB
     const user = await prisma.user.findUnique({ where: { id: userId } });
