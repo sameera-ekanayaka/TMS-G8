@@ -11,6 +11,7 @@ const userRoutes = require("./routes/userRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const attachmentRoutes = require("./routes/attachmentRoutes");
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -24,6 +25,7 @@ const io = new Server(httpServer, {
 
 // Initialize Socket.io service
 const { initializeSocket } = require("./services/socketService");
+const { initializeDeadlineScheduler } = require("./services/deadlineService");
 const taskController = require("./controllers/taskController");
 
 // Initialize Socket.io connections
@@ -50,6 +52,9 @@ io.on("connection", (socket) => {
   });
 });
 
+// Initialize deadline notification scheduler
+  initializeDeadlineScheduler(io, connectedUsers);
+
 // Attach io and connectedUsers to every request so controllers can emit
 app.use((req, _res, next) => {
   req.io = io;
@@ -65,6 +70,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/tasks", commentRoutes);
+app.use("/api/tasks", attachmentRoutes);
 app.use("/api/notifications", notificationRoutes);
 
 app.get("/", (_req, res) => {
