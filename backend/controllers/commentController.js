@@ -17,6 +17,8 @@ const createComment = async (req, res) => {
     const { content } = req.body;
     const userId = req.user.id; // From protect middleware
     const userRole = req.user.role;
+    const io = req.io; // Socket.io instance from server.js
+    const connectedUsers = req.connectedUsers; // Connected users map
 
     // Validate task ID
     const taskId = parseInt(id);
@@ -75,10 +77,35 @@ const createComment = async (req, res) => {
       },
     });
 
-    return res.status(201).json({
-      message: "Comment added successfully",
-      comment,
+    // ════════ Socket.io Real-Time Notification ════════════════════════════
+// Send "comment_added" notification to all assigned users
+const assignedUserIds = task.assignments.map((a) => a.userId);
+assignedUserIds.forEach((assignedUserId) => {
+  // Don't send notification to the person who just commented
+  if (assignedUserId !== userId && io && connectedUsers[assignedUserId]) {
+    io.to(connectedUsers[assignedUserId]).emit("comment_added", {
+      message: `New comment on "${task.title}": "${content.substring(0, 50)}..."`,
+      task: {
+        id: task.id,
+        title: task.title,
+      },
+      comment: {
+        id: comment.id,
+        content: comment.content,
+        author: comment.user.name,
+        authorId: comment.user.id,
+      },
+      timestamp: new Date(),
     });
+  }
+});
+console.log(`✅ Real-time notifications sent: Comment added to task ${taskId}`);
+
+return res.status(201).json({
+  message: "Comment added successfully",
+  comment,
+});
+
   } catch (error) {
     console.error("Create comment error:", error);
     return res.status(500).json({
