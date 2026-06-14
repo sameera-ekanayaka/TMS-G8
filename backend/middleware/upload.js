@@ -1,23 +1,19 @@
 // backend/middleware/upload.js
 const multer = require("multer");
 const path = require("path");
-const { v4: uuidv4 } = require("crypto").webcrypto ? 
-  require("crypto") : require("crypto");
 
-// Use crypto.randomUUID() — built into Node 16+, no extra package needed
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads/"); // folder must exist — created below
+    cb(null, "uploads/");
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
     const unique = require("crypto").randomUUID();
-    cb(null, `${unique}${ext}`); // e.g. "a1b2c3-....pdf"
+    cb(null, `${unique}${ext}`);
   },
 });
 
 const fileFilter = (req, file, cb) => {
-  // Allow common file types only
   const allowed = [
     "image/jpeg", "image/png", "image/gif",
     "application/pdf",
