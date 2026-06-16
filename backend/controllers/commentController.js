@@ -10,6 +10,7 @@ const prisma = new PrismaClient();
 // Add a comment to a task
 // Only assigned collaborators and project managers can comment
 // Body: { content }
+// Creates persistent notification + emits real-time Socket.io event
 // Returns: { message, comment }
 const createComment = async (req, res) => {
   try {
@@ -77,35 +78,50 @@ const createComment = async (req, res) => {
       },
     });
 
-    // ════════ Socket.io Real-Time Notification ════════════════════════════
-// Send "comment_added" notification to all assigned users
-const assignedUserIds = task.assignments.map((a) => a.userId);
-assignedUserIds.forEach((assignedUserId) => {
-  // Don't send notification to the person who just commented
-  if (assignedUserId !== userId && io && connectedUsers[assignedUserId]) {
-    io.to(connectedUsers[assignedUserId]).emit("comment_added", {
-      message: `New comment on "${task.title}": "${content.substring(0, 50)}..."`,
-      task: {
-        id: task.id,
-        title: task.title,
-      },
-      comment: {
-        id: comment.id,
-        content: comment.content,
-        author: comment.user.name,
-        authorId: comment.user.id,
-      },
-      timestamp: new Date(),
+    // ════════ Save persistent notifications + emit real-time events ═════
+    // Send "comment_added" notification to all assigned users
+    const assignedUserIds = task.assignments.map((a) => a.userId);
+    const contentPreview = content.substring(0, 50);
+    const notificationMessage = `New comment on "${task.title}": "${contentPreview}..."`;
+
+    // Use for...of loop (not forEach) to properly await async operations
+    for (const assignedUserId of assignedUserIds) {
+      // Don't send notification to the person who just commented
+      if (assignedUserId !== userId) {
+        // Save notification to database (persistent)
+        await prisma.notification.create({
+          data: {
+            message: notificationMessage,
+            userId: assignedUserId,
+            isRead: false,
+          },
+        });
+
+        // Emit real-time Socket.io event if user is online
+        if (io && connectedUsers[assignedUserId]) {
+          io.to(connectedUsers[assignedUserId]).emit("comment_added", {
+            message: notificationMessage,
+            task: {
+              id: task.id,
+              title: task.title,
+            },
+            comment: {
+              id: comment.id,
+              content: comment.content,
+              author: comment.user.name,
+              authorId: comment.user.id,
+            },
+            timestamp: new Date(),
+          });
+        }
+      }
+    }
+    console.log(`✅ Persistent notifications saved + real-time events sent: Comment added to task ${taskId}`);
+
+    return res.status(201).json({
+      message: "Comment added successfully",
+      comment,
     });
-  }
-});
-console.log(`✅ Real-time notifications sent: Comment added to task ${taskId}`);
-
-return res.status(201).json({
-  message: "Comment added successfully",
-  comment,
-});
-
   } catch (error) {
     console.error("Create comment error:", error);
     return res.status(500).json({
