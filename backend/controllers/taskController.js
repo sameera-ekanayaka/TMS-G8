@@ -275,17 +275,15 @@ const updateTask = async (req, res) => {
       }
     }
 
-    // Prepare update data (only update fields that are provided)
-    const updateData = {};
-    if (title !== undefined) updateData.title = title.trim();
-    if (description !== undefined) updateData.description = description ? description.trim() : null;
-    if (priority !== undefined) updateData.priority = priority;
-    if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null;
-
     // Update the task
     const updatedTask = await prisma.task.update({
       where: { id: taskId },
-      data: updateData,
+      data: {
+        title: title ? title.trim() : undefined,
+        description: description ? description.trim() : undefined,
+        priority: priority || undefined,
+        dueDate: dueDate ? new Date(dueDate) : undefined,
+      },
       include: {
         createdBy: {
           select: { id: true, name: true, email: true, role: true },
@@ -312,7 +310,7 @@ const updateTask = async (req, res) => {
   }
 };
 
-// ════════ DELETE /api/tasks/:id ════════════════════════════════════════════
+// ════════ DELETE /api/tasks/:id ═════════════════════════════════════════════
 // Delete a task
 // Only PROJECT_MANAGER can delete tasks
 // Returns: { message }
@@ -357,20 +355,22 @@ const deleteTask = async (req, res) => {
 // Assign a task to a user
 // Only PROJECT_MANAGER can assign tasks
 // Body: { userId }
-// Emits: task_assigned notification to the assigned user via Socket.io
+// Creates persistent notification + emits real-time Socket.io event
 // Returns: { message, assignment }
 const assignTask = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = parseInt(req.body.userId);
-if (isNaN(userId)) {
-  return res.status(400).json({
-    error: "Validation Error",
-    message: "userId must be a valid number",
-  });
-}
-const io = req.io; // Socket.io instance from server.js
+    const io = req.io; // Socket.io instance from server.js
     const connectedUsers = req.connectedUsers; // Connected users map from server.js
+
+    // ════════ Validate userId: consolidated check (no dead code) ════════
+    if (isNaN(userId) || userId <= 0) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "userId must be a valid positive number",
+      });
+    }
 
     // Validate task ID
     const taskId = parseInt(id);
@@ -378,14 +378,6 @@ const io = req.io; // Socket.io instance from server.js
       return res.status(400).json({
         error: "Validation Error",
         message: "Task ID must be a valid number",
-      });
-    }
-
-    // Validate userId is provided
-    if (!userId) {
-      return res.status(400).json({
-        error: "Validation Error",
-        message: "User ID is required",
       });
     }
 
@@ -439,11 +431,23 @@ const io = req.io; // Socket.io instance from server.js
       },
     });
 
-    // ════════ Emit Socket.io Real-Time Notification ════════════════════
-    // Send notification to the assigned user if they're connected
+    // ════════ Save notification to database (persistent) ════════════════
+    // This ensures offline users will see the notification when they return
+    const notificationMessage = `You have been assigned a new task: "${task.title}"`;
+    await prisma.notification.create({
+      data: {
+        message: notificationMessage,
+        userId,
+        isRead: false,
+      },
+    });
+    console.log(`✅ Persistent notification saved to DB for user ${userId}`);
+
+    // ════════ Emit Socket.io Real-Time Notification (if online) ═════════
+    // Send notification to the assigned user if they're currently connected
     if (io && connectedUsers[userId]) {
       io.to(connectedUsers[userId]).emit("task_assigned", {
-        message: `You have been assigned a new task: "${task.title}"`,
+        message: notificationMessage,
         task: {
           id: task.id,
           title: task.title,
@@ -454,7 +458,9 @@ const io = req.io; // Socket.io instance from server.js
       });
       console.log(`✅ Real-time notification sent to user ${userId}: Task assigned`);
     } else {
-      console.log(`⚠️ User ${userId} is not connected. Notification not sent.`);
+      console.log(
+        `⚠️ User ${userId} is offline. Persistent notification saved; real-time will be sent when they reconnect.`
+      );
     }
 
     return res.status(201).json({
@@ -474,7 +480,7 @@ const io = req.io; // Socket.io instance from server.js
 // Update task status
 // Can be done by PROJECT_MANAGER or assigned COLLABORATOR
 // Body: { status }
-// Emits: task_status_changed notification to all assigned users via Socket.io
+// Creates persistent notifications + emits real-time Socket.io events
 // Status must be: TODO, IN_PROGRESS, or COMPLETED
 // Returns: { message, task }
 const updateTaskStatus = async (req, res) => {
@@ -546,13 +552,25 @@ const updateTaskStatus = async (req, res) => {
       },
     });
 
-    // ════════ Emit Socket.io Real-Time Notification ════════════════════
-    // Send notification to all assigned users
+    // ════════ Save notifications to database + emit real-time events ═════
+    // Use for...of loop (not forEach) to properly await async operations
     const assignedUserIds = updatedTask.assignments.map((a) => a.userId);
-    assignedUserIds.forEach((assignedUserId) => {
+    const notificationMessage = `Task "${updatedTask.title}" status changed to ${updatedTask.status}`;
+
+    for (const assignedUserId of assignedUserIds) {
+      // Save notification to database (persistent)
+      await prisma.notification.create({
+        data: {
+          message: notificationMessage,
+          userId: assignedUserId,
+          isRead: false,
+        },
+      });
+
+      // Emit real-time Socket.io event if user is online
       if (io && connectedUsers[assignedUserId]) {
         io.to(connectedUsers[assignedUserId]).emit("task_status_changed", {
-          message: `Task "${updatedTask.title}" status changed to ${updatedTask.status}`,
+          message: notificationMessage,
           task: {
             id: updatedTask.id,
             title: updatedTask.title,
@@ -562,8 +580,10 @@ const updateTaskStatus = async (req, res) => {
           timestamp: new Date(),
         });
       }
-    });
-    console.log(`✅ Real-time notifications sent: Task status changed to ${status}`);
+    }
+    console.log(
+      `✅ Persistent notifications saved + real-time events sent: Task ${taskId} status changed to ${status}`
+    );
 
     return res.status(200).json({
       message: "Task status updated successfully",
