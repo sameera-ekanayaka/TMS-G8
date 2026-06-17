@@ -6,6 +6,55 @@ const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 
+// ════════ HELPER FUNCTION ═══════════════════════════════════════════════════
+// Validates task ID, checks task exists, and verifies user permission
+// Used by both createComment and getCommentsByTaskId to avoid duplication
+// Returns: { task } on success, or sends error response
+const validateTaskAccessAndGetTask = async (req, res, taskIdParam) => {
+  const userId = req.user.id;
+  const userRole = req.user.role;
+
+  // Validate task ID
+  const taskId = parseInt(taskIdParam);
+  if (isNaN(taskId)) {
+    res.status(400).json({
+      error: "Validation Error",
+      message: "Task ID must be a valid number",
+    });
+    return null;
+  }
+
+  // Check if task exists
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: {
+      assignments: true,
+    },
+  });
+
+  if (!task) {
+    res.status(404).json({
+      error: "Not Found",
+      message: "Task not found",
+    });
+    return null;
+  }
+
+  // Permission check: Only PROJECT_MANAGER/ADMIN or assigned COLLABORATOR can access
+  if (userRole === "COLLABORATOR") {
+    const isAssigned = task.assignments.some((a) => a.userId === userId);
+    if (!isAssigned) {
+      res.status(403).json({
+        error: "Forbidden",
+        message: "You do not have access to this task",
+      });
+      return null;
+    }
+  }
+
+  return task;
+};
+
 // ════════ POST /api/tasks/:id/comments ════════════════════════════════════
 // Add a comment to a task
 // Only assigned collaborators and project managers can comment
@@ -17,18 +66,8 @@ const createComment = async (req, res) => {
     const { id } = req.params;
     const { content } = req.body;
     const userId = req.user.id; // From protect middleware
-    const userRole = req.user.role;
     const io = req.io; // Socket.io instance from server.js
     const connectedUsers = req.connectedUsers; // Connected users map
-
-    // Validate task ID
-    const taskId = parseInt(id);
-    if (isNaN(taskId)) {
-      return res.status(400).json({
-        error: "Validation Error",
-        message: "Task ID must be a valid number",
-      });
-    }
 
     // Validate content is provided and not empty
     if (!content || content.trim().length === 0) {
@@ -38,37 +77,15 @@ const createComment = async (req, res) => {
       });
     }
 
-    // Check if task exists
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      include: {
-        assignments: true, // Get all assigned users
-      },
-    });
-
-    if (!task) {
-      return res.status(404).json({
-        error: "Not Found",
-        message: "Task not found",
-      });
-    }
-
-    // Permission check: Only PROJECT_MANAGER/ADMIN or assigned COLLABORATOR can comment
-    if (userRole === "COLLABORATOR") {
-      const isAssigned = task.assignments.some((a) => a.userId === userId);
-      if (!isAssigned) {
-        return res.status(403).json({
-          error: "Forbidden",
-          message: "You can only comment on tasks assigned to you",
-        });
-      }
-    }
+    // Validate task access and get task
+    const task = await validateTaskAccessAndGetTask(req, res, id);
+    if (!task) return; // Error already sent by helper
 
     // Create the comment
     const comment = await prisma.comment.create({
       data: {
         content: content.trim(),
-        taskId,
+        taskId: task.id,
         userId,
       },
       include: {
@@ -116,7 +133,7 @@ const createComment = async (req, res) => {
         }
       }
     }
-    console.log(`✅ Persistent notifications saved + real-time events sent: Comment added to task ${taskId}`);
+    console.log(`✅ Persistent notifications saved + real-time events sent: Comment added to task ${task.id}`);
 
     return res.status(201).json({
       message: "Comment added successfully",
@@ -138,47 +155,14 @@ const createComment = async (req, res) => {
 const getCommentsByTaskId = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
-    const userRole = req.user.role;
 
-    // Validate task ID
-    const taskId = parseInt(id);
-    if (isNaN(taskId)) {
-      return res.status(400).json({
-        error: "Validation Error",
-        message: "Task ID must be a valid number",
-      });
-    }
-
-    // Check if task exists
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      include: {
-        assignments: true,
-      },
-    });
-
-    if (!task) {
-      return res.status(404).json({
-        error: "Not Found",
-        message: "Task not found",
-      });
-    }
-
-    // Permission check: Only PROJECT_MANAGER/ADMIN or assigned COLLABORATOR can view comments
-    if (userRole === "COLLABORATOR") {
-      const isAssigned = task.assignments.some((a) => a.userId === userId);
-      if (!isAssigned) {
-        return res.status(403).json({
-          error: "Forbidden",
-          message: "You can only view comments on tasks assigned to you",
-        });
-      }
-    }
+    // Validate task access and get task (helper function handles all validation)
+    const task = await validateTaskAccessAndGetTask(req, res, id);
+    if (!task) return; // Error already sent by helper
 
     // Fetch all comments for this task
     const comments = await prisma.comment.findMany({
-      where: { taskId },
+      where: { taskId: task.id },
       include: {
         user: {
           select: { id: true, name: true, email: true },
