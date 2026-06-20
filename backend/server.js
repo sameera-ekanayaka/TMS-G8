@@ -52,9 +52,6 @@ io.use((socket, next) => {
   }
 });
 
-// connectedUsers maps userId -> socket.id for targeted notifications
-const connectedUsers = {};
-
 io.on("connection", (socket) => {
   connectedUsers[socket.userId] = socket.id;
   console.log(`User ${socket.userId} connected with socket ${socket.id}`);
