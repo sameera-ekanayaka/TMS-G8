@@ -47,11 +47,14 @@ const checkAndNotifyDeadlines = async (io, connectedUsers) => {
     for (const task of upcomingTasks) {
       // Check if a notification already exists for this task today
       // (to avoid duplicate notifications)
+      // Check if a notification for this task was already sent to any assigned user
+      // within the last hour to avoid duplicate notifications per run
       const existingNotification = await prisma.notification.findFirst({
         where: {
           message: {
             contains: `Task "${task.title}" is due soon`,
           },
+          userId: task.assignments.length > 0 ? task.assignments[0].userId : undefined,
           createdAt: {
             gte: new Date(now.getTime() - 1 * 60 * 60 * 1000), // Within last hour
           },
