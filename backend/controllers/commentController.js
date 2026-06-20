@@ -106,7 +106,7 @@ const createComment = async (req, res) => {
       // Don't send notification to the person who just commented
       if (assignedUserId !== userId) {
         // Save notification to database (persistent)
-        await prisma.notification.create({
+        const dbNotification = await prisma.notification.create({
           data: {
             message: notificationMessage,
             userId: assignedUserId,
@@ -130,6 +130,9 @@ const createComment = async (req, res) => {
             },
             timestamp: new Date(),
           });
+
+          // Emit general notification event
+          io.to(connectedUsers[assignedUserId]).emit("notification", dbNotification);
         }
       }
     }
@@ -139,6 +142,14 @@ const createComment = async (req, res) => {
       message: "Comment added successfully",
       comment,
     });
+  } catch (error) {
+    console.error("Create comment error:", error);
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to add comment",
+    });
+  }
+};
 
 // ════════ GET /api/tasks/:id/comments ═══════════════════════════════════════
 // Get all comments for a task

@@ -439,7 +439,7 @@ const assignTask = async (req, res) => {
     // ════════ Save notification to database (persistent) ════════════════
     // This ensures offline users will see the notification when they return
     const notificationMessage = `You have been assigned a new task: "${task.title}"`;
-    await prisma.notification.create({
+    const dbNotification = await prisma.notification.create({
       data: {
         message: notificationMessage,
         userId,
@@ -461,6 +461,8 @@ const assignTask = async (req, res) => {
         },
         timestamp: new Date(),
       });
+      // Emit general notification event
+      io.to(connectedUsers[userId]).emit("notification", dbNotification);
       console.log(`✅ Real-time notification sent to user ${userId}: Task assigned`);
     } else {
       console.log(
@@ -564,7 +566,7 @@ const updateTaskStatus = async (req, res) => {
 
     for (const assignedUserId of assignedUserIds) {
       // Save notification to database (persistent)
-      await prisma.notification.create({
+      const dbNotification = await prisma.notification.create({
         data: {
           message: notificationMessage,
           userId: assignedUserId,
@@ -584,6 +586,8 @@ const updateTaskStatus = async (req, res) => {
           },
           timestamp: new Date(),
         });
+        // Emit general notification event
+        io.to(connectedUsers[assignedUserId]).emit("notification", dbNotification);
       }
     }
     console.log(

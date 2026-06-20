@@ -76,6 +76,8 @@ app.use((req, _res, next) => {
 
 app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173", credentials: true }));
 app.use(express.json());
+const path = require("path");
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/api/auth", authRoutes);

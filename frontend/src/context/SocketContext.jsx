@@ -81,14 +81,14 @@ export const SocketProvider = ({ children }) => {
   const markAsRead = (notificationId) => {
     setNotifications(prev => 
       prev.map(notif => 
-        notif.id === notificationId ? { ...notif, read: true } : notif
+        notif.id === notificationId ? { ...notif, isRead: true } : notif
       )
     );
   };
 
   const markAllAsRead = () => {
     setNotifications(prev => 
-      prev.map(notif => ({ ...notif, read: true }))
+      prev.map(notif => ({ ...notif, isRead: true }))
     );
   };
 

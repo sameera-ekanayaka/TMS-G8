@@ -16,8 +16,9 @@ const NotificationPanel = () => {
     setLoading(true);
     try {
       const response = await getNotifications(token);
-      setNotifications(response.data);
-      setUnreadCount(response.data.filter(n => !n.read).length);
+      const fetchedNotifications = response.data.notifications || [];
+      setNotifications(fetchedNotifications);
+      setUnreadCount(fetchedNotifications.filter(n => !n.isRead).length);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     } finally {
@@ -80,7 +81,7 @@ const NotificationPanel = () => {
     try {
       await markNotificationRead(token, id);
       setNotifications(prev => prev.map(n => 
-        n.id === id ? { ...n, read: true } : n
+        n.id === id ? { ...n, isRead: true } : n
       ));
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
@@ -91,7 +92,7 @@ const NotificationPanel = () => {
   const markAllRead = async () => {
     try {
       await markAllNotificationsRead(token);
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
       setUnreadCount(0);
     } catch (error) {
       console.error('Failed to mark all as read:', error);
@@ -148,20 +149,20 @@ const NotificationPanel = () => {
               notifications.map((notif) => (
                 <div
                   key={notif.id}
-                  className={`p-3 hover:bg-gray-50 transition-colors cursor-pointer ${
-                    !notif.read ? 'bg-blue-50' : ''
+                  className={`p-3 hover:bg-gray-55 transition-colors cursor-pointer ${
+                    !notif.isRead ? 'bg-blue-50' : ''
                   } border-l-4 ${getTypeColor(notif.type)}`}
                   onClick={() => markAsRead(notif.id)}
                 >
                   <div className="flex items-start gap-3">
                     <div className="mt-1">{getIcon(notif.type)}</div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${!notif.read ? 'font-medium' : 'text-gray-600'}`}>
+                      <p className={`text-sm ${!notif.isRead ? 'font-medium' : 'text-gray-650'}`}>
                         {notif.message}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         <p className="text-xs text-gray-500">{formatTime(notif.createdAt)}</p>
-                        {!notif.read && (
+                        {!notif.isRead && (
                           <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">
                             New
                           </span>

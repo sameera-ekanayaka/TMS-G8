@@ -72,7 +72,7 @@ const checkAndNotifyDeadlines = async (io, connectedUsers) => {
 
         // Create notification for each assigned user
         for (const assignment of task.assignments) {
-          await prisma.notification.create({
+          const dbNotification = await prisma.notification.create({
             data: {
               message,
               userId: assignment.userId,
@@ -97,6 +97,7 @@ const checkAndNotifyDeadlines = async (io, connectedUsers) => {
                 timestamp: new Date(),
               }
             );
+            io.to(connectedUsers[assignment.userId]).emit("notification", dbNotification);
             console.log(
               `✅ Deadline notification sent to user ${assignment.userId}`
             );
@@ -132,6 +133,7 @@ const checkAndNotifyDeadlines = async (io, connectedUsers) => {
                 timestamp: new Date(),
               }
             );
+            io.to(connectedUsers[task.createdById]).emit("notification", creatorNotification);
           }
         }
       }
