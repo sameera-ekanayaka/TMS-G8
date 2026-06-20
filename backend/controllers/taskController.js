@@ -261,17 +261,22 @@ const updateTask = async (req, res) => {
       });
     }
 
-    // Validate due date if provided
+    // Validate due date if it's being changed to a new value
     if (dueDate) {
       const dueDateObj = new Date(dueDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const existingDueDate = task.dueDate ? new Date(task.dueDate) : null;
+      const isDateChanging = !existingDueDate || dueDateObj.getTime() !== existingDueDate.getTime();
 
-      if (dueDateObj < today) {
-        return res.status(400).json({
-          error: "Validation Error",
-          message: "Due date cannot be in the past",
-        });
+      if (isDateChanging) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (dueDateObj < today) {
+          return res.status(400).json({
+            error: "Validation Error",
+            message: "Due date cannot be in the past",
+          });
+        }
       }
     }
 
