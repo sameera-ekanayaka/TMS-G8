@@ -24,11 +24,11 @@ A full-stack web application for creating, managing, and tracking tasks collabor
 ## Team Members
 | Member | Name | Responsibilities |
 |--------|------|-----------------|
-| 1 | Sameera | GitHub setup, Auth API, JWT middleware, RBAC, User management API |
+| 1 | Sameera | GitHub setup, Auth API, JWT middleware, RBAC, User management API, Vercel + Render deployment |
 | 2 | Subanya | Task CRUD API, Socket.io emit, Swagger docs |
 | 3 | Ravindu | Login page, Register flow, Protected routes, Admin Users UI |
 | 4 | Binithi | Kanban board, Task pages, Dashboard, Notification panel |
-| 5 | Aflam | Prisma schema, DB setup, Docker, Vercel + Render deployment, ER diagram |
+| 5 | Aflam | Prisma schema, DB setup, Docker, Deployment Diagram, ER diagram, Documentation |
 
 ## Setup
 ### Backend
