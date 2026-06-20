@@ -90,6 +90,15 @@ const createUser = async (req, res) => {
       });
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "Please provide a valid email address.",
+      });
+    }
+
     // Validate role value
     const validRoles = ["ADMIN", "PROJECT_MANAGER", "COLLABORATOR"];
     if (!validRoles.includes(role)) {
@@ -196,8 +205,16 @@ const updateUser = async (req, res) => {
       });
     }
 
-    // If email is changing, make sure it's not taken
+    // If email is changing, validate format then check uniqueness
     if (email && email !== existing.email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          error: "Validation Error",
+          message: "Please provide a valid email address.",
+        });
+      }
+
       const emailTaken = await prisma.user.findUnique({ where: { email } });
       if (emailTaken) {
         return res.status(400).json({
