@@ -4,7 +4,7 @@ const path = require("path");
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads/");
+    cb(null, path.join(__dirname, "..", "uploads")); // absolute path — safe for deployment
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);

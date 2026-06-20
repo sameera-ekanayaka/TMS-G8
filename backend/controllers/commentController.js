@@ -98,8 +98,8 @@ const createComment = async (req, res) => {
     // ════════ Save persistent notifications + emit real-time events ═════
     // Send "comment_added" notification to all assigned users
     const assignedUserIds = task.assignments.map((a) => a.userId);
-    const contentPreview = content.substring(0, 50);
-    const notificationMessage = `New comment on "${task.title}": "${contentPreview}..."`;
+    const contentPreview = content.length > 50 ? content.substring(0, 50) + "..." : content;
+    const notificationMessage = `New comment on "${task.title}": "${contentPreview}"`;
 
     // Use for...of loop (not forEach) to properly await async operations
     for (const assignedUserId of assignedUserIds) {
@@ -139,14 +139,6 @@ const createComment = async (req, res) => {
       message: "Comment added successfully",
       comment,
     });
-  } catch (error) {
-    console.error("Create comment error:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      message: "Failed to add comment",
-    });
-  }
-};
 
 // ════════ GET /api/tasks/:id/comments ═══════════════════════════════════════
 // Get all comments for a task
