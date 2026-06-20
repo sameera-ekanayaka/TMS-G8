@@ -1,25 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { useTasks } from '../context/TaskContext';
-import { Search, Filter, Plus, Calendar, User, Tag } from 'lucide-react';
-import TaskCard from '../components/Task/TaskCard';
-import TaskForm from '../components/Task/TaskForm';
+import { useTasks } from '../../context/TaskContext';
+import { Search, Filter, Calendar, User, Tag, ChevronDown } from 'lucide-react';
+import TaskCard from './TaskCard';
+import TaskForm from './TaskForm';
 
-const Tasks = () => {
+const TaskList = () => {
   const { tasks, loading, filters, setFilters, fetchTasks } = useTasks();
   const [showFilters, setShowFilters] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingTask, setEditingTask] = useState(null);
 
   const statusOptions = ['All', 'To Do', 'In Progress', 'Completed'];
   const priorityOptions = ['All', 'Low', 'Medium', 'High'];
 
-  useEffect(() => {
-    fetchTasks();
-  }, []);
-
   const handleFilterChange = (key, value) => {
     setFilters({ ...filters, [key]: value === 'All' ? '' : value });
+  };
+
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
   };
 
   const filteredTasks = tasks.filter(task => {
@@ -27,6 +26,10 @@ const Tasks = () => {
     return task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
            task.description?.toLowerCase().includes(searchTerm.toLowerCase());
   });
+
+  useEffect(() => {
+    fetchTasks();
+  }, [filters]);
 
   if (loading) {
     return (
@@ -37,21 +40,14 @@ const Tasks = () => {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
-          <p className="text-gray-500">Manage all your tasks in one place</p>
-        </div>
+        <h2 className="text-2xl font-bold">Tasks</h2>
         <button
-          onClick={() => {
-            setEditingTask(null);
-            setShowTaskForm(true);
-          }}
-          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2"
+          onClick={() => setShowTaskForm(true)}
+          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
         >
-          <Plus size={20} />
-          New Task
+          + New Task
         </button>
       </div>
 
@@ -65,7 +61,7 @@ const Tasks = () => {
                 type="text"
                 placeholder="Search tasks..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearch}
                 className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -77,6 +73,7 @@ const Tasks = () => {
           >
             <Filter size={18} />
             Filters
+            <ChevronDown size={16} className={`transform transition-transform ${showFilters ? 'rotate-180' : ''}`} />
           </button>
         </div>
 
@@ -107,6 +104,32 @@ const Tasks = () => {
                 ))}
               </select>
             </div>
+
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Sort By</label>
+              <select
+                value={filters.sortBy || 'dueDate'}
+                onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="dueDate">Due Date</option>
+                <option value="priority">Priority</option>
+                <option value="title">Title</option>
+                <option value="createdAt">Created Date</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Order</label>
+              <select
+                value={filters.order || 'asc'}
+                onChange={(e) => handleFilterChange('order', e.target.value)}
+                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+              </select>
+            </div>
           </div>
         )}
       </div>
@@ -114,14 +137,7 @@ const Tasks = () => {
       {/* Task Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredTasks.map(task => (
-          <TaskCard 
-            key={task.id} 
-            task={task} 
-            onEdit={() => {
-              setEditingTask(task);
-              setShowTaskForm(true);
-            }}
-          />
+          <TaskCard key={task.id} task={task} />
         ))}
       </div>
 
@@ -139,17 +155,10 @@ const Tasks = () => {
       )}
 
       {showTaskForm && (
-        <TaskForm
-          task={editingTask}
-          onClose={() => {
-            setShowTaskForm(false);
-            setEditingTask(null);
-          }}
-          onSuccess={() => fetchTasks()}
-        />
+        <TaskForm onClose={() => setShowTaskForm(false)} />
       )}
     </div>
   );
 };
 
-export default Tasks;
+export default TaskList;
