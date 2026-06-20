@@ -68,10 +68,10 @@ const protect = async (req, res, next) => {
 
     // Block users who haven't reset their temporary password yet
     // Allow the reset-password endpoint itself to pass through
-    if (user.mustResetPassword && !req.path.includes("reset-password")) {
+    if (user.mustResetPassword && !req.path.includes("/reset-password")) {
       return res.status(403).json({
         error: "Forbidden",
-        message: "You must change your temporary password before accessing the system.",
+        message: "You must reset your password before accessing the system. Please call POST /api/auth/reset-password.",
       });
     }
 
