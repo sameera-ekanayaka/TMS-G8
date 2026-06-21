@@ -57,6 +57,33 @@ router.get("/", protect, getUserNotifications);
 
 /**
  * @swagger
+ * /api/notifications/read-all:
+ *   patch:
+ *     summary: Mark all notifications for the logged-in user as read
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: All notifications marked as read
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 count:
+ *                   type: integer
+ *       401:
+ *         description: Unauthorized - no valid token
+ *       500:
+ *         description: Internal server error
+ */
+router.patch("/read-all", protect, markAllNotificationsAsRead);
+
+/**
+ * @swagger
  * /api/notifications/{id}/read:
  *   patch:
  *     summary: Mark a single notification as read
@@ -86,32 +113,5 @@ router.get("/", protect, getUserNotifications);
  */
 router.patch("/:id/read", protect, markNotificationAsRead);
 
-/**
- * @swagger
- * /api/notifications/read-all:
- *   patch:
- *     summary: Mark all notifications for the logged-in user as read
- *     tags: [Notifications]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: All notifications marked as read
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 count:
- *                   type: integer
- *                   description: Number of notifications marked as read
- *       401:
- *         description: Unauthorized - no valid token
- *       500:
- *         description: Internal server error
- */
-router.patch("/read-all", protect, markAllNotificationsAsRead);
-
 module.exports = router;
+

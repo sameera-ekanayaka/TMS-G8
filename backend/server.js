@@ -11,9 +11,11 @@ const userRoutes = require("./routes/userRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const attachmentRoutes = require("./routes/attachmentRoutes");
 
 const app = express();
 const httpServer = http.createServer(app);
+const jwt = require("jsonwebtoken");
 
 const io = new Server(httpServer, {
   cors: {
@@ -24,6 +26,7 @@ const io = new Server(httpServer, {
 
 // Initialize Socket.io service
 const { initializeSocket } = require("./services/socketService");
+const { initializeDeadlineScheduler } = require("./services/deadlineService");
 const taskController = require("./controllers/taskController");
 
 // Initialize Socket.io connections
@@ -32,23 +35,37 @@ initializeSocket(io);
 // connectedUsers maps userId -> socket.id for targeted notifications
 const connectedUsers = {};
 
-io.on("connection", (socket) => {
-  console.log(`Socket connected: ${socket.id}`);
+// ── Socket.io auth middleware ──────────────────────────────
+// Verifies the JWT sent by the client before allowing the connection,
+// and attaches the verified userId to the socket. Replaces trusting
+// a client-emitted "register" event, which let anyone claim any userId.
+io.use((socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token;
+    if (!token) return next(new Error("Authentication error: no token provided"));
 
-  socket.on("register", (userId) => {
-    connectedUsers[userId] = socket.id;
-    console.log(`User ${userId} registered with socket ${socket.id}`);
-  });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.id;
+    next();
+  } catch (err) {
+    next(new Error("Authentication error: invalid or expired token"));
+  }
+});
+
+io.on("connection", (socket) => {
+  connectedUsers[socket.userId] = socket.id;
+  console.log(`User ${socket.userId} connected with socket ${socket.id}`);
 
   socket.on("disconnect", () => {
-    for (const [userId, sid] of Object.entries(connectedUsers)) {
-      if (sid === socket.id) {
-        delete connectedUsers[userId];
-        break;
-      }
+    if (connectedUsers[socket.userId] === socket.id) {
+      delete connectedUsers[socket.userId];
     }
+    console.log(`User ${socket.userId} disconnected`);
   });
 });
+
+// Initialize deadline notification scheduler
+  initializeDeadlineScheduler(io, connectedUsers);
 
 // Attach io and connectedUsers to every request so controllers can emit
 app.use((req, _res, next) => {
@@ -59,12 +76,15 @@ app.use((req, _res, next) => {
 
 app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173", credentials: true }));
 app.use(express.json());
+const path = require("path");
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/tasks", commentRoutes);
+app.use("/api/tasks", attachmentRoutes);
 app.use("/api/notifications", notificationRoutes);
 
 app.get("/", (_req, res) => {

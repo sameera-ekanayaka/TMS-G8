@@ -40,6 +40,7 @@ model User {
   taskAssignments   TaskAssignment[]
   comments          Comment[]
   notifications     Notification[]
+  attachments       Attachment[]
 }
 
 model Task {
@@ -56,6 +57,7 @@ model Task {
   createdBy   User             @relation("CreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
   assignments TaskAssignment[]
   comments    Comment[]
+  attachments Attachment[]
 }
 
 model TaskAssignment {
@@ -88,5 +90,19 @@ model Notification {
   createdAt DateTime @default(now())
   userId    Int
 
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Attachment {
+  id        Int      @id @default(autoincrement())
+  filename  String                  // original name shown to users e.g. "report.pdf"
+  storedAs  String                  // UUID-based name saved on disk e.g. "a1b2c3.pdf"
+  mimeType  String                  // e.g. "image/png", "application/pdf"
+  size      Int                     // file size in bytes
+  createdAt DateTime @default(now())
+  taskId    Int
+  userId    Int
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
