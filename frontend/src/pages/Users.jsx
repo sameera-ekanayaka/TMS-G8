@@ -5,6 +5,7 @@ import {
   createUser,
   updateUser,
   deactivateUser,
+  activateUser,
 } from "../services/api";
 
 export default function Users() {
@@ -35,7 +36,8 @@ export default function Users() {
     setError("");
     try {
       const response = await getUsers(token);
-      setUsers(response.data);
+      const data = response.data;
+      setUsers(Array.isArray(data) ? data : data.users || []);
     } catch (err) {
       setError("Failed to load users. Please try again.");
     } finally {
@@ -115,6 +117,16 @@ export default function Users() {
       await fetchUsers();
     } catch (err) {
       setError("Failed to deactivate user.");
+    }
+  }
+
+  async function handleActivate(id) {
+    if (!window.confirm("Are you sure you want to activate this user?")) return;
+    try {
+      await activateUser(token, id);
+      await fetchUsers();
+    } catch (err) {
+      setError("Failed to activate user.");
     }
   }
 
@@ -209,12 +221,19 @@ export default function Users() {
                       >
                         Edit
                       </button>
-                      {user.isActive && (
+                      {user.isActive ? (
                         <button
                           onClick={() => handleDeactivate(user.id)}
                           className="text-xs text-red-500 hover:text-red-700 font-medium"
                         >
                           Deactivate
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleActivate(user.id)}
+                          className="text-xs text-green-600 hover:text-green-800 font-medium"
+                        >
+                          Activate
                         </button>
                       )}
                     </div>
