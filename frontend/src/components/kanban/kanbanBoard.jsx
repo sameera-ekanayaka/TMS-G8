@@ -142,4 +142,114 @@ const KanbanBoard = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Kanban Board</h1>
-          <div className="flex items-center gap-2 text
+          <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+            <span>{isConnected ? 'Real-time connected' : 'Offline mode'}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            className={`p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors ${
+              isRefreshing ? 'animate-spin' : ''
+            }`}
+            title="Refresh Board"
+          >
+            <RefreshCw size={20} />
+          </button>
+          <button
+            onClick={() => {
+              setSelectedStatus('To Do');
+              setShowTaskForm(true);
+            }}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            <Plus size={16} />
+            <span>Add Task</span>
+          </button>
+        </div>
+      </div>
+
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {STATUSES.map((status) => {
+            const columnTasks = groupedTasks[status] || [];
+            return (
+              <div key={status} className="bg-gray-50 rounded-xl border p-4 flex flex-col min-h-[500px]">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-semibold text-gray-800">{status}</h3>
+                  <span className="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 rounded-full font-medium">
+                    {columnTasks.length}
+                  </span>
+                </div>
+                
+                <Droppable droppableId={status}>
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className={`flex-1 space-y-3 transition-colors ${
+                        snapshot.isDraggingOver ? 'bg-gray-100/50' : ''
+                      }`}
+                    >
+                      {columnTasks.map((task, index) => (
+                        <Draggable key={task.id} draggableId={task.id.toString()} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow transition-all ${
+                                snapshot.isDragging ? 'shadow-md ring-2 ring-indigo-500/10' : ''
+                              }`}
+                            >
+                              <div className="flex justify-between items-start gap-2 mb-2">
+                                <h4 className="font-medium text-gray-850 line-clamp-2">{task.title}</h4>
+                                <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 font-medium ${getPriorityColor(task.priority)}`}>
+                                  {task.priority}
+                                </span>
+                              </div>
+                              {task.description && (
+                                <p className="text-gray-500 text-xs line-clamp-3 mb-4">{task.description}</p>
+                              )}
+                              
+                              <div className="flex justify-between items-center text-gray-400 text-xs">
+                                <div className="flex items-center gap-1">
+                                  <Calendar size={12} />
+                                  <span>{formatDate(task.dueDate)}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <User size={12} />
+                                  <span className="truncate max-w-[80px]">
+                                    {task.assignments?.[0]?.user?.name || 'Unassigned'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </div>
+            );
+          })}
+        </div>
+      </DragDropContext>
+
+      {showTaskForm && (
+        <TaskForm
+          onClose={() => {
+            setShowTaskForm(false);
+            setSelectedStatus(null);
+          }}
+          initialStatus={selectedStatus}
+        />
+      )}
+    </>
+  );
+};
+
+export default KanbanBoard;
