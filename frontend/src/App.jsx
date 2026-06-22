@@ -8,7 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Tasks from "./pages/Tasks";
 import Users from "./pages/Users";
 import ResetPassword from "./pages/ResetPassword";
-import KanbanBoard from "./components/kanban/KanbanBoard";
+import KanbanBoard from "./components/kanban/kanbanBoard";
 import Sidebar from "./components/common/Sidebar";
 import Navbar from "./components/common/Navbar";
 
