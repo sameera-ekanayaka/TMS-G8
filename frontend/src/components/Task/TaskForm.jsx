@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { useTasks } from '../../context/TaskContext';
 import { getUsers } from '../../services/api';
 
-const TaskForm = ({ task, onClose, onSuccess }) => {
+const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
   const { addTask, editTask } = useTasks();
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
@@ -13,7 +13,7 @@ const TaskForm = ({ task, onClose, onSuccess }) => {
     assignedUserId: '',
     dueDate: '',
     priority: 'Medium',
-    status: 'To Do',
+    status: initialStatus || 'To Do',
   });
 
   const token = localStorage.getItem('token');
