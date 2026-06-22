@@ -41,13 +41,12 @@ export default function Login() {
       const response = await loginUser(email, password);
       const { token, user } = response.data;
       login(token, user);
-      navigate("/dashboard");
-    } 
-//     try {
-//   login("fake-token-123", { id: 1, name: "Ravindu", role: "ADMIN" });
-//   navigate("/dashboard");
-// }
-    catch (err) {
+      if (user.mustResetPassword) {
+        navigate("/reset-password");
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (err) {
       const message = err.response?.data?.message || "Login failed. Please try again.";
       setError(message);
     } finally {
@@ -79,7 +78,7 @@ export default function Login() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="test@gmail.com"
+              placeholder="you@example.com"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
@@ -122,5 +121,4 @@ export default function Login() {
       </div>
     </div>
   );
-  
 }
