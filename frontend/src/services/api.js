@@ -24,9 +24,9 @@ export const getUsers = (token) => api.get("/api/users", authHeader(token));
 export const createUser = (token, data) => api.post("/api/users", data, authHeader(token));
 export const updateUser = (token, id, data) => api.put(`/api/users/${id}`, data, authHeader(token));
 export const deactivateUser = (token, id) => api.patch(`/api/users/${id}/deactivate`, {}, authHeader(token));
+export const activateUser = (token, id) => api.patch(`/api/users/${id}/activate`, {}, authHeader(token));
 
 // ════════ TASK ENDPOINTS ════════════════════════════════════════════════════
-// getTasks now supports optional query params: status, priority, sortBy, order
 export const getTasks = (token, filters = {}) => {
   const params = new URLSearchParams();
   if (filters.status) params.append("status", filters.status);
@@ -46,11 +46,9 @@ export const assignTask = (token, taskId, userId) => api.post(`/api/tasks/${task
 export const updateTaskStatus = (token, taskId, status) => api.put(`/api/tasks/${taskId}/status`, { status }, authHeader(token));
 
 // ════════ COMMENT ENDPOINTS ════════════════════════════════════════════════
-// Get all comments for a task
 export const getComments = (token, taskId) =>
   api.get(`/api/tasks/${taskId}/comments`, authHeader(token));
 
-// Create a new comment on a task
 export const createComment = (token, taskId, content) =>
   api.post(
     `/api/tasks/${taskId}/comments`,
@@ -59,11 +57,9 @@ export const createComment = (token, taskId, content) =>
   );
 
 // ════════ ATTACHMENT ENDPOINTS ══════════════════════════════════════════════
-// Get all attachments for a task
 export const getAttachments = (token, taskId) =>
   api.get(`/api/tasks/${taskId}/attachments`, authHeader(token));
 
-// Upload a file attachment to a task (sends FormData)
 export const uploadAttachment = (token, taskId, file) => {
   const formData = new FormData();
   formData.append("file", file);
@@ -85,7 +81,6 @@ export const uploadAttachment = (token, taskId, file) => {
 export const getNotifications = (token) => api.get("/api/notifications", authHeader(token));
 export const markNotificationRead = (token, id) => api.patch(`/api/notifications/${id}/read`, {}, authHeader(token));
 
-// Mark all notifications as read
 export const markAllNotificationsRead = (token) =>
   api.patch("/api/notifications/read-all", {}, authHeader(token));
 
