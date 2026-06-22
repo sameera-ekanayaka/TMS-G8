@@ -143,23 +143,20 @@ const createUser = async (req, res) => {
       },
     });
 
-    // Send onboarding email with temp password
-    // We wrap in try/catch so a failed email doesn't block the response
-    try {
-      await sendOnboardingEmail({
-        to: email,
-        name,
-        email,
-        tempPassword, // plain text — only time we use it
-        role,
-      });
-    } catch (emailError) {
-      // Log the error but still return success — user was created
-      console.error("Onboarding email failed:", emailError.message);
-    }
+    // Send onboarding email in the background (fire-and-forget) so SMTP delays/blocks don't freeze the UI
+    sendOnboardingEmail({
+      to: email,
+      name,
+      email,
+      tempPassword,
+      role,
+    }).catch((emailError) => {
+      console.error("Onboarding email background failure:", emailError.message);
+    });
 
     return res.status(201).json({
-      message: "User created successfully. Onboarding email sent.",
+      message: "User created successfully.",
+      tempPassword, // Returned as a fallback in case the email fails to deliver
       user: newUser,
     });
   } catch (error) {

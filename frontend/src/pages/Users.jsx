@@ -97,11 +97,15 @@ export default function Users() {
     try {
       if (editingUser) {
         await updateUser(token, editingUser.id, formData);
+        await fetchUsers();
+        closeModal();
       } else {
-        await createUser(token, formData);
+        const response = await createUser(token, formData);
+        const createdPassword = response.data.tempPassword;
+        await fetchUsers();
+        closeModal();
+        alert(`User created successfully!\n\nTemporary Password: ${createdPassword}\n\nPlease share this password with the user.`);
       }
-      await fetchUsers();
-      closeModal();
     } catch (err) {
       const message = err.response?.data?.message || "Something went wrong.";
       setFormError(message);
