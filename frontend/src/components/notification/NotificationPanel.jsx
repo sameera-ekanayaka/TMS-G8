@@ -8,17 +8,24 @@ const NotificationPanel = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { socket } = useSocket();
+  const { socket, isConnected } = useSocket();
   const token = localStorage.getItem('token');
 
+  // Fetch notifications from API
   const fetchNotifications = async () => {
     if (!token) return;
     setLoading(true);
     try {
       const response = await getNotifications(token);
-      const fetchedNotifications = response.data.notifications || [];
-      setNotifications(fetchedNotifications);
-      setUnreadCount(fetchedNotifications.filter(n => !n.isRead).length);
+      const rawNotifications = response.data.notifications || [];
+      // Map backend response to expected format
+      const mappedNotifications = rawNotifications.map(notif => ({
+        ...notif,
+        createdAt: notif.createdAt || new Date().toISOString(),
+        type: notif.type || mapNotificationType(notif),
+      }));
+      setNotifications(mappedNotifications);
+      setUnreadCount(mappedNotifications.filter(n => !n.isRead).length);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     } finally {
@@ -26,25 +33,109 @@ const NotificationPanel = () => {
     }
   };
 
+  // Map notification type based on content
+  const mapNotificationType = (notif) => {
+    const message = notif.message || '';
+    if (message.includes('assigned')) return 'task_assigned';
+    if (message.includes('status')) return 'status_change';
+    if (message.includes('comment')) return 'comment';
+    if (message.includes('deadline') || message.includes('due')) return 'deadline';
+    return 'admin_update';
+  };
+
+  // Socket event listeners
+  useEffect(() => {
+    if (!socket) return;
+
+    // Listen for specific events from backend
+    const handleTaskAssigned = (data) => {
+      console.log('📋 Task assigned event:', data);
+      const newNotification = {
+        id: data.id || Date.now(),
+        message: data.message || `Task "${data.taskTitle}" assigned to you`,
+        type: 'task_assigned',
+        createdAt: data.timestamp || new Date().toISOString(),
+        isRead: false,
+        taskId: data.taskId,
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+    };
+
+    const handleTaskStatusChanged = (data) => {
+      console.log('🔄 Task status changed:', data);
+      const newNotification = {
+        id: data.id || Date.now(),
+        message: data.message || `Task "${data.taskTitle}" status changed to ${data.newStatus}`,
+        type: 'status_change',
+        createdAt: data.timestamp || new Date().toISOString(),
+        isRead: false,
+        taskId: data.taskId,
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+    };
+
+    // Handle task comment events (if backend supports)
+    const handleTaskCommented = (data) => {
+      console.log('💬 Task commented:', data);
+      const newNotification = {
+        id: data.id || Date.now(),
+        message: data.message || `New comment on "${data.taskTitle}"`,
+        type: 'comment',
+        createdAt: data.timestamp || new Date().toISOString(),
+        isRead: false,
+        taskId: data.taskId,
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+    };
+
+    // Handle deadline approaching events
+    const handleDeadlineApproaching = (data) => {
+      console.log('⏰ Deadline approaching:', data);
+      const newNotification = {
+        id: data.id || Date.now(),
+        message: data.message || `Task "${data.taskTitle}" is due soon!`,
+        type: 'deadline',
+        createdAt: data.timestamp || new Date().toISOString(),
+        isRead: false,
+        taskId: data.taskId,
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+    };
+
+    // Register event listeners
+    socket.on('task_assigned', handleTaskAssigned);
+    socket.on('task_status_changed', handleTaskStatusChanged);
+    socket.on('task_commented', handleTaskCommented);
+    socket.on('deadline_approaching', handleDeadlineApproaching);
+
+    // Handle reconnection - fetch missed notifications
+    const handleReconnect = () => {
+      console.log('🔄 Socket reconnected - fetching missed notifications');
+      fetchNotifications();
+    };
+
+    socket.on('connect', handleReconnect);
+
+    // Cleanup
+    return () => {
+      socket.off('task_assigned', handleTaskAssigned);
+      socket.off('task_status_changed', handleTaskStatusChanged);
+      socket.off('task_commented', handleTaskCommented);
+      socket.off('deadline_approaching', handleDeadlineApproaching);
+      socket.off('connect', handleReconnect);
+    };
+  }, [socket]);
+
+  // Initial fetch when panel opens
   useEffect(() => {
     if (isOpen) {
       fetchNotifications();
     }
   }, [isOpen]);
-
-  // Real-time notification listener
-  useEffect(() => {
-    if (!socket) return;
-
-    socket.on('notification', (data) => {
-      setNotifications(prev => [data, ...prev]);
-      setUnreadCount(prev => prev + 1);
-    });
-
-    return () => {
-      socket.off('notification');
-    };
-  }, [socket]);
 
   const getIcon = (type) => {
     const icons = {
@@ -69,6 +160,7 @@ const NotificationPanel = () => {
   };
 
   const formatTime = (timestamp) => {
+    if (!timestamp) return 'Just now';
     const diff = Date.now() - new Date(timestamp).getTime();
     const minutes = Math.floor(diff / 60000);
     if (minutes < 1) return 'Just now';
@@ -111,14 +203,24 @@ const NotificationPanel = () => {
             {unreadCount}
           </span>
         )}
+        {!isConnected && (
+          <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full border-2 border-white"></span>
+        )}
       </button>
 
       {isOpen && (
         <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border max-h-[500px] flex flex-col z-50">
           <div className="p-3 border-b flex justify-between items-center bg-gray-50 rounded-t-lg">
-            <h3 className="font-semibold text-gray-800">Notifications</h3>
             <div className="flex items-center gap-2">
-              {notifications.some(n => !n.read) && (
+              <h3 className="font-semibold text-gray-800">Notifications</h3>
+              {!isConnected && (
+                <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full">
+                  Offline
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {notifications.some(n => !n.isRead) && (
                 <button
                   onClick={markAllRead}
                   className="text-xs text-blue-500 hover:text-blue-600 hover:underline"
