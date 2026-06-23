@@ -46,6 +46,7 @@ io.use((socket, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.userId = decoded.id;
+    socket.userRole = decoded.role;
     next();
   } catch (err) {
     next(new Error("Authentication error: invalid or expired token"));
@@ -54,6 +55,16 @@ io.use((socket, next) => {
 
 io.on("connection", (socket) => {
   connectedUsers[socket.userId] = socket.id;
+
+  // Each socket joins a personal room so we can target a single user, and
+  // managers join a shared room. Task events are sent only to managers
+  // (who can see all tasks) and the users assigned to that task — instead
+  // of broadcasting every task to everyone, which leaked tasks to users
+  // who shouldn't see them.
+  socket.join(`user:${socket.userId}`);
+  if (socket.userRole === "ADMIN" || socket.userRole === "PROJECT_MANAGER") {
+    socket.join("managers");
+  }
   console.log(`User ${socket.userId} connected with socket ${socket.id}`);
 
   socket.on("disconnect", () => {

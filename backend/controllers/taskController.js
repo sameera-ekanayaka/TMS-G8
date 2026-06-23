@@ -32,6 +32,19 @@ const notifyAssignment = async (io, connectedUsers, assigneeId, task) => {
   }
 };
 
+// ════════ Helper: emit a task event only to people allowed to see it ═════════
+// Recipients = all managers (ADMIN/PROJECT_MANAGER see every task) + the users
+// assigned to this task. Avoids the old io.emit() broadcast that sent every
+// task to every connected client, including collaborators with no access.
+const emitTaskEvent = (io, event, payload, assigneeIds = []) => {
+  if (!io) return;
+  let target = io.to("managers");
+  for (const id of assigneeIds) {
+    target = target.to(`user:${id}`);
+  }
+  target.emit(event, payload);
+};
+
 // ════════ POST /api/tasks ════════════════════════════════════════════════════
 // Create a new task
 // Only PROJECT_MANAGER can create tasks
@@ -132,10 +145,8 @@ const createTask = async (req, res) => {
       }
     }
 
-    const io = req.io;
-    if (io) {
-      io.emit("taskCreated", newTask);
-    }
+    const assigneeIds = newTask.assignments.map((a) => a.userId);
+    emitTaskEvent(req.io, "taskCreated", newTask, assigneeIds);
 
     return res.status(201).json({
       message: "Task created successfully",
@@ -375,13 +386,14 @@ const updateTask = async (req, res) => {
     // Handle assignment if assignedUserId is provided
     let assignmentsUpdate = undefined;
     let newAssigneeId = null; // set only when assignment changes to a new user
+    let previousAssigneeIds = []; // used to also notify removed assignees' clients
     if (assignedUserId !== undefined) {
       // Remember who was assigned before so we don't re-notify the same person
       const previousAssignments = await prisma.taskAssignment.findMany({
         where: { taskId },
         select: { userId: true },
       });
-      const previousAssigneeIds = previousAssignments.map((a) => a.userId);
+      previousAssigneeIds = previousAssignments.map((a) => a.userId);
 
       // Clear existing assignments for this task
       await prisma.taskAssignment.deleteMany({
@@ -431,10 +443,13 @@ const updateTask = async (req, res) => {
       await notifyAssignment(req.io, req.connectedUsers, newAssigneeId, updatedTask);
     }
 
-    const io = req.io;
-    if (io) {
-      io.emit("taskUpdated", updatedTask);
-    }
+    // Notify both current and previous assignees so a removed assignee's board
+    // updates too (the task should disappear from their view).
+    const currentAssigneeIds = updatedTask.assignments.map((a) => a.userId);
+    const affectedAssigneeIds = [
+      ...new Set([...currentAssigneeIds, ...previousAssigneeIds]),
+    ];
+    emitTaskEvent(req.io, "taskUpdated", updatedTask, affectedAssigneeIds);
 
     return res.status(200).json({
       message: "Task updated successfully",
@@ -466,8 +481,11 @@ const deleteTask = async (req, res) => {
       });
     }
 
-    // Check if task exists
-    const task = await prisma.task.findUnique({ where: { id: taskId } });
+    // Check if task exists (load assignments so we know who to notify)
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      include: { assignments: { select: { userId: true } } },
+    });
     if (!task) {
       return res.status(404).json({
         error: "Not Found",
@@ -475,13 +493,12 @@ const deleteTask = async (req, res) => {
       });
     }
 
+    const assigneeIds = task.assignments.map((a) => a.userId);
+
     // Delete the task (Prisma cascade delete handles assignments & comments)
     await prisma.task.delete({ where: { id: taskId } });
 
-    const io = req.io;
-    if (io) {
-      io.emit("taskDeleted", taskId);
-    }
+    emitTaskEvent(req.io, "taskDeleted", taskId, assigneeIds);
 
     return res.status(200).json({
       message: "Task deleted successfully",
@@ -733,13 +750,10 @@ const updateTaskStatus = async (req, res) => {
       `✅ Persistent notifications saved + real-time events sent: Task ${taskId} status changed to ${status}`
     );
 
-    if (io) {
-      io.emit("task_status_changed", {
-        taskId: updatedTask.id,
-        newStatus: updatedTask.status,
-        task: updatedTask,
-      });
-    }
+    // Sync the updated task to managers + assignees (scoped, not a global
+    // broadcast). The per-assignee "task_status_changed" notification events
+    // above still carry the human-readable message for the notification panel.
+    emitTaskEvent(req.io, "taskUpdated", updatedTask, assignedUserIds);
 
     return res.status(200).json({
       message: "Task status updated successfully",
