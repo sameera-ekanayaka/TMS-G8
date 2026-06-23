@@ -4,10 +4,9 @@
 
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
-const { PrismaClient } = require("@prisma/client");
 const { sendOnboardingEmail } = require("../services/emailService");
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 // ─── GET /api/users ───────────────────────────────────────────
 // Returns all users (excluding passwords)
@@ -200,6 +199,20 @@ const updateUser = async (req, res) => {
         error: "Not Found",
         message: "User not found.",
       });
+    }
+
+    // Don't allow demoting the last active admin — that would lock everyone
+    // out of user management.
+    if (role && existing.role === "ADMIN" && role !== "ADMIN") {
+      const activeAdminCount = await prisma.user.count({
+        where: { role: "ADMIN", isActive: true },
+      });
+      if (activeAdminCount <= 1) {
+        return res.status(400).json({
+          error: "Validation Error",
+          message: "Cannot change the role of the last active admin.",
+        });
+      }
     }
 
     // If email is changing, validate format then check uniqueness
