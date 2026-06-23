@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Calendar, MessageSquare, Paperclip, Send, Download, FileText, Image as ImageIcon } from 'lucide-react';
 import { getComments, createComment, getAttachments, uploadAttachment } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 const TaskDetails = ({ task, onClose }) => {
   const [comments, setComments] = useState([]);
@@ -9,7 +10,7 @@ const TaskDetails = ({ task, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const token = localStorage.getItem('token');
+  const { token } = useAuth();
   const apiBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getTasks, createTask, updateTask, deleteTask, updateTaskStatus } from '../services/api';
 import { useSocket } from './SocketContext';
+import { useAuth } from './AuthContext';
 
 const TaskContext = createContext();
 
@@ -13,7 +14,7 @@ export const TaskProvider = ({ children }) => {
   const [filters, setFilters] = useState({ status: '', priority: '', sortBy: 'dueDate', order: 'asc' });
   const { socket } = useSocket();
 
-  const token = localStorage.getItem('token');
+  const { token } = useAuth();
 
   // Fetch tasks with filters
   const fetchTasks = async (filterParams = filters) => {

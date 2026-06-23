@@ -3,6 +3,8 @@ import { X } from 'lucide-react';
 import { useTasks } from '../../context/TaskContext';
 import { getUsers } from '../../services/api';
 
+import { useAuth } from '../../context/AuthContext';
+
 const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
   const { addTask, editTask } = useTasks();
   const [loading, setLoading] = useState(false);
@@ -16,7 +18,7 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
     status: initialStatus || 'To Do',
   });
 
-  const token = localStorage.getItem('token');
+  const { token } = useAuth();
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -141,6 +143,7 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
               name="dueDate"
               value={formData.dueDate}
               onChange={handleChange}
+              min={new Date().toISOString().split('T')[0]}
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
