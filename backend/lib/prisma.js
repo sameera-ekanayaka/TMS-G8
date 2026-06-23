@@ -1,8 +1,6 @@
 // backend/lib/prisma.js
-// Single shared PrismaClient for the whole app.
-// Previously every controller/middleware did `new PrismaClient()`, which opens
-// its own connection pool — with enough of them a long-running server can run
-// out of database connections. Import this one instance everywhere instead.
+// One shared PrismaClient for the whole app. Using new PrismaClient() in every
+// file opens a separate connection pool, which can exhaust DB connections.
 
 const { PrismaClient } = require("@prisma/client");
 
