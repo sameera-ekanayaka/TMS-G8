@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Calendar, User, MoreVertical, Edit2, Trash2, Check, Eye } from 'lucide-react';
 import { useTasks } from '../../context/TaskContext';
 
-const TaskCard = ({ task, onEdit, onView }) => {
+const TaskCard = ({ task, onEdit, onView, canManage = true }) => {
   const { changeTaskStatus, removeTask } = useTasks();
   const [showMenu, setShowMenu] = useState(false);
 
@@ -100,26 +100,30 @@ const TaskCard = ({ task, onEdit, onView }) => {
                     View details
                   </button>
                 )}
-                <button
-                  onClick={() => {
-                    setShowMenu(false);
-                    onEdit();
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded flex items-center gap-2"
-                >
-                  <Edit2 size={14} />
-                  Edit
-                </button>
-                <button
-                  onClick={() => {
-                    setShowMenu(false);
-                    handleDelete();
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded flex items-center gap-2"
-                >
-                  <Trash2 size={14} />
-                  Delete
-                </button>
+                {canManage && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        onEdit();
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded flex items-center gap-2"
+                    >
+                      <Edit2 size={14} />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        handleDelete();
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded flex items-center gap-2"
+                    >
+                      <Trash2 size={14} />
+                      Delete
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}

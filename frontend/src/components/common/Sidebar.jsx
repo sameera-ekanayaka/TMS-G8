@@ -4,13 +4,16 @@ import { LayoutDashboard, List, Kanban, Users, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = () => {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/tasks', icon: List, label: 'Tasks' },
     { path: '/kanban', icon: Kanban, label: 'Kanban' },
-    { path: '/users', icon: Users, label: 'Users' },
+    // Users management is admin-only (route is also guarded in App.jsx)
+    ...(user?.role === 'ADMIN'
+      ? [{ path: '/users', icon: Users, label: 'Users' }]
+      : []),
   ];
 
   return (

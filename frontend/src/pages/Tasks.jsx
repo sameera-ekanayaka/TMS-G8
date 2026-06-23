@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTasks } from '../context/TaskContext';
 import { useSocket } from '../context/SocketContext';
+import { useAuth } from '../context/AuthContext';
 import { Search, Filter, Plus, LayoutGrid, LayoutList, Kanban } from 'lucide-react';
 import TaskCard from '../components/Task/TaskCard';
 import TaskTable from '../components/Task/TaskTable';
@@ -10,6 +11,10 @@ import TaskDetails from '../components/Task/TaskDetails';
 const Tasks = () => {
   const { tasks, loading, filters, setFilters, fetchTasks, addTask, editTask, removeTask } = useTasks();
   const { socket } = useSocket();
+  const { user } = useAuth();
+  // Only managers/admins create, edit and delete tasks. Collaborators can still
+  // view tasks and change the status of ones assigned to them.
+  const canManage = user?.role === 'ADMIN' || user?.role === 'PROJECT_MANAGER';
   const [showFilters, setShowFilters] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -115,16 +120,18 @@ const Tasks = () => {
           <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
           <p className="text-gray-500">Manage all your tasks in one place</p>
         </div>
-        <button
-          onClick={() => {
-            setEditingTask(null);
-            setShowTaskForm(true);
-          }}
-          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2"
-        >
-          <Plus size={20} />
-          New Task
-        </button>
+        {canManage && (
+          <button
+            onClick={() => {
+              setEditingTask(null);
+              setShowTaskForm(true);
+            }}
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2"
+          >
+            <Plus size={20} />
+            New Task
+          </button>
+        )}
       </div>
 
       {/* Search, Filters, and View Toggle */}
@@ -232,12 +239,14 @@ const Tasks = () => {
         <div className="text-center py-12">
           <div className="text-6xl mb-4">📋</div>
           <p className="text-gray-500">No tasks found</p>
-          <button
-            onClick={() => setShowTaskForm(true)}
-            className="mt-4 text-blue-500 hover:underline"
-          >
-            Create your first task
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setShowTaskForm(true)}
+              className="mt-4 text-blue-500 hover:underline"
+            >
+              Create your first task
+            </button>
+          )}
         </div>
       ) : (
         <>
@@ -247,6 +256,7 @@ const Tasks = () => {
                 <TaskCard
                   key={task.id}
                   task={task}
+                  canManage={canManage}
                   onView={() => setViewingTask(task)}
                   onEdit={() => {
                     setEditingTask(task);
@@ -260,6 +270,7 @@ const Tasks = () => {
           {viewMode === 'table' && (
             <TaskTable
               tasks={filteredTasks}
+              canManage={canManage}
               onView={(task) => setViewingTask(task)}
               onEdit={(task) => {
                 setEditingTask(task);
@@ -280,6 +291,7 @@ const Tasks = () => {
                         <TaskCard
                           key={task.id}
                           task={task}
+                          canManage={canManage}
                           onView={() => setViewingTask(task)}
                           onEdit={() => {
                             setEditingTask(task);
