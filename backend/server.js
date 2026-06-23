@@ -58,11 +58,8 @@ io.use((socket, next) => {
 io.on("connection", (socket) => {
   connectedUsers[socket.userId] = socket.id;
 
-  // Each socket joins a personal room so we can target a single user, and
-  // managers join a shared room. Task events are sent only to managers
-  // (who can see all tasks) and the users assigned to that task — instead
-  // of broadcasting every task to everyone, which leaked tasks to users
-  // who shouldn't see them.
+  // personal room per user + a shared "managers" room, so task events go to
+  // managers and the task's assignees only, not to everyone
   socket.join(`user:${socket.userId}`);
   if (socket.userRole === "ADMIN" || socket.userRole === "PROJECT_MANAGER") {
     socket.join("managers");
@@ -87,8 +84,7 @@ app.use((req, _res, next) => {
   next();
 });
 
-// Security headers (OWASP). crossOriginResourcePolicy is relaxed so the
-// frontend (different origin) can still load uploaded files from /uploads.
+// security headers. allow cross-origin so the frontend can load /uploads files
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -100,7 +96,7 @@ app.use(express.json());
 const path = require("path");
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Throttle auth endpoints to slow down brute-force / credential stuffing.
+// limit auth attempts to slow down brute force / credential stuffing
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // 10 attempts per IP per window
