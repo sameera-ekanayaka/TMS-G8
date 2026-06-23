@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useTasks } from '../../context/TaskContext';
 import { useSocket } from '../../context/SocketContext';
+import { useAuth } from '../../context/AuthContext';
 import { Plus, Calendar, User, RefreshCw } from 'lucide-react';
 import TaskForm from '../Task/TaskForm';
 
@@ -10,6 +11,8 @@ const STATUSES = ['To Do', 'In Progress', 'Completed'];
 const KanbanBoard = () => {
   const { tasks, loading, changeTaskStatus, fetchTasks } = useTasks();
   const { socket, isConnected } = useSocket();
+  const { user } = useAuth();
+  const canManage = user?.role === 'ADMIN' || user?.role === 'PROJECT_MANAGER';
   const [groupedTasks, setGroupedTasks] = useState({});
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState(null);
@@ -157,16 +160,18 @@ const KanbanBoard = () => {
           >
             <RefreshCw size={20} />
           </button>
-          <button
-            onClick={() => {
-              setSelectedStatus('To Do');
-              setShowTaskForm(true);
-            }}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          >
-            <Plus size={16} />
-            <span>Add Task</span>
-          </button>
+          {canManage && (
+            <button
+              onClick={() => {
+                setSelectedStatus('To Do');
+                setShowTaskForm(true);
+              }}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Plus size={16} />
+              <span>Add Task</span>
+            </button>
+          )}
         </div>
       </div>
 

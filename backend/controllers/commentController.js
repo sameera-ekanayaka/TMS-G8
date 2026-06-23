@@ -2,9 +2,8 @@
 // Handles comment operations: create and retrieve comments on tasks
 // Member 2 (Subanya)
 
-const { PrismaClient } = require("@prisma/client");
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 // ════════ HELPER FUNCTION ═══════════════════════════════════════════════════
 // Validates task ID, checks task exists, and verifies user permission
