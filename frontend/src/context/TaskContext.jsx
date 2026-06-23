@@ -117,17 +117,21 @@ export const TaskProvider = ({ children }) => {
       setTasks(prev => prev.filter(task => task.id !== taskId));
     });
 
-    socket.on('taskStatusChanged', ({ taskId, newStatus }) => {
-      setTasks(prev => prev.map(task => 
-        task.id === taskId ? { ...task, status: newStatus } : task
-      ));
+    socket.on('task_status_changed', (data) => {
+      const taskId = data.taskId || (data.task && data.task.id);
+      const newStatus = data.newStatus || (data.task && data.task.status);
+      if (taskId && newStatus) {
+        setTasks(prev => prev.map(task => 
+          task.id === taskId ? { ...task, status: newStatus } : task
+        ));
+      }
     });
 
     return () => {
       socket.off('taskCreated');
       socket.off('taskUpdated');
       socket.off('taskDeleted');
-      socket.off('taskStatusChanged');
+      socket.off('task_status_changed');
     };
   }, [socket]);
 
