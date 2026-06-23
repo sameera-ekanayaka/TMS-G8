@@ -5,6 +5,7 @@ import { Search, Filter, Plus, LayoutGrid, LayoutList, Kanban } from 'lucide-rea
 import TaskCard from '../components/Task/TaskCard';
 import TaskTable from '../components/Task/TaskTable';
 import TaskForm from '../components/Task/TaskForm';
+import TaskDetails from '../components/Task/TaskDetails';
 
 const Tasks = () => {
   const { tasks, loading, filters, setFilters, fetchTasks, addTask, editTask, removeTask } = useTasks();
@@ -13,6 +14,7 @@ const Tasks = () => {
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingTask, setEditingTask] = useState(null);
+  const [viewingTask, setViewingTask] = useState(null);
   const [viewMode, setViewMode] = useState('grid'); // 'grid', 'table', 'board'
 
   const statusOptions = ['All', 'To Do', 'In Progress', 'Completed'];
@@ -242,9 +244,10 @@ const Tasks = () => {
           {viewMode === 'grid' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredTasks.map(task => (
-                <TaskCard 
-                  key={task.id} 
-                  task={task} 
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onView={() => setViewingTask(task)}
                   onEdit={() => {
                     setEditingTask(task);
                     setShowTaskForm(true);
@@ -255,8 +258,9 @@ const Tasks = () => {
           )}
 
           {viewMode === 'table' && (
-            <TaskTable 
+            <TaskTable
               tasks={filteredTasks}
+              onView={(task) => setViewingTask(task)}
               onEdit={(task) => {
                 setEditingTask(task);
                 setShowTaskForm(true);
@@ -273,9 +277,10 @@ const Tasks = () => {
                     {filteredTasks
                       .filter(task => task.status === status)
                       .map(task => (
-                        <TaskCard 
-                          key={task.id} 
-                          task={task} 
+                        <TaskCard
+                          key={task.id}
+                          task={task}
+                          onView={() => setViewingTask(task)}
                           onEdit={() => {
                             setEditingTask(task);
                             setShowTaskForm(true);
@@ -298,6 +303,13 @@ const Tasks = () => {
             setEditingTask(null);
           }}
           onSuccess={() => fetchTasks()}
+        />
+      )}
+
+      {viewingTask && (
+        <TaskDetails
+          task={viewingTask}
+          onClose={() => setViewingTask(null)}
         />
       )}
     </div>

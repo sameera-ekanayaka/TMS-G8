@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Calendar, User, MoreVertical, Edit2, Trash2, Check } from 'lucide-react';
+import { Calendar, User, MoreVertical, Edit2, Trash2, Check, Eye } from 'lucide-react';
 import { useTasks } from '../../context/TaskContext';
 
-const TaskCard = ({ task, onEdit }) => {
+const TaskCard = ({ task, onEdit, onView }) => {
   const { changeTaskStatus, removeTask } = useTasks();
   const [showMenu, setShowMenu] = useState(false);
 
@@ -54,7 +54,11 @@ const TaskCard = ({ task, onEdit }) => {
       isOverdue(task.dueDate) ? 'border-red-300 bg-red-50' : ''
     }`}>
       <div className="flex justify-between items-start mb-2">
-        <div className="flex-1">
+        <div
+          className={`flex-1 ${onView ? 'cursor-pointer' : ''}`}
+          onClick={() => onView && onView()}
+          title={onView ? 'View details, comments and attachments' : undefined}
+        >
           <h4 className="font-medium text-gray-900 line-clamp-2">{task.title}</h4>
           {task.description && (
             <p className="text-sm text-gray-600 line-clamp-2 mt-1">{task.description}</p>
@@ -84,6 +88,18 @@ const TaskCard = ({ task, onEdit }) => {
                 ))}
               </div>
               <div className="p-2">
+                {onView && (
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      onView();
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded flex items-center gap-2"
+                  >
+                    <Eye size={14} />
+                    View details
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setShowMenu(false);
