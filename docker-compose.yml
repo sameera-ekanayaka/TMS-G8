@@ -15,8 +15,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      # Point the built bundle at the backend. Override these for a real
-      # deployment (e.g. https://your-api.example.com).
+      # build the frontend pointing at the backend (override for real deploys)
       args:
         VITE_API_URL: http://localhost:5000
         VITE_WS_URL: http://localhost:5000
@@ -35,8 +34,7 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-    # Let backend wait until MySQL is actually ready to accept connections,
-    # otherwise `prisma migrate deploy` can run before the DB is up.
+    # wait until mysql is actually ready before the backend starts
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpassword"]
       interval: 5s

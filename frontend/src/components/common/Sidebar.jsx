@@ -10,7 +10,7 @@ const Sidebar = () => {
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/tasks', icon: List, label: 'Tasks' },
     { path: '/kanban', icon: Kanban, label: 'Kanban' },
-    // Users management is admin-only (route is also guarded in App.jsx)
+    // users page is admin only (the route is guarded too)
     ...(user?.role === 'ADMIN'
       ? [{ path: '/users', icon: Users, label: 'Users' }]
       : []),

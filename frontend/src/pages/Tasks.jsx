@@ -12,8 +12,8 @@ const Tasks = () => {
   const { tasks, loading, filters, setFilters, fetchTasks, addTask, editTask, removeTask } = useTasks();
   const { socket } = useSocket();
   const { user } = useAuth();
-  // Only managers/admins create, edit and delete tasks. Collaborators can still
-  // view tasks and change the status of ones assigned to them.
+  // only managers create/edit/delete. collaborators can still view and
+  // change status on tasks assigned to them.
   const canManage = user?.role === 'ADMIN' || user?.role === 'PROJECT_MANAGER';
   const [showFilters, setShowFilters] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
