@@ -56,11 +56,8 @@ io.use((socket, next) => {
 io.on("connection", (socket) => {
   connectedUsers[socket.userId] = socket.id;
 
-  // Each socket joins a personal room so we can target a single user, and
-  // managers join a shared room. Task events are sent only to managers
-  // (who can see all tasks) and the users assigned to that task — instead
-  // of broadcasting every task to everyone, which leaked tasks to users
-  // who shouldn't see them.
+  // personal room per user + a shared "managers" room, so task events go to
+  // managers and the task's assignees only, not to everyone
   socket.join(`user:${socket.userId}`);
   if (socket.userRole === "ADMIN" || socket.userRole === "PROJECT_MANAGER") {
     socket.join("managers");
