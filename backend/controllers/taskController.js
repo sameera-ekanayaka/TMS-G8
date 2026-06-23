@@ -7,10 +7,8 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 // ════════ Helper: notify a user that a task was assigned to them ══════════════
-// Saves a persistent notification (so offline users see it later) and, if the
-// user is currently connected, pushes a real-time event. Used by createTask and
-// updateTask so assigning through the normal task form actually notifies people
-// (previously only the separate /assign endpoint did this).
+// Saves the notification and pushes a live event if the user is online.
+// createTask/updateTask use this so assigning from the form notifies people.
 const notifyAssignment = async (io, connectedUsers, assigneeId, task) => {
   const message = `You have been assigned a new task: "${task.title}"`;
   const dbNotification = await prisma.notification.create({
@@ -124,7 +122,7 @@ const createTask = async (req, res) => {
       },
     });
 
-    // Notify the assignee (if any, and not the creator assigning to themselves)
+    // notify the assignee (skip if the PM assigned it to themselves)
     if (assignedUserId) {
       const assigneeId = parseInt(assignedUserId);
       if (assigneeId !== userId) {
@@ -376,7 +374,7 @@ const updateTask = async (req, res) => {
     let assignmentsUpdate = undefined;
     let newAssigneeId = null; // set only when assignment changes to a new user
     if (assignedUserId !== undefined) {
-      // Remember who was assigned before so we don't re-notify the same person
+      // who was assigned before, so we don't re-notify the same person
       const previousAssignments = await prisma.taskAssignment.findMany({
         where: { taskId },
         select: { userId: true },
@@ -426,7 +424,7 @@ const updateTask = async (req, res) => {
       },
     });
 
-    // Notify the new assignee (skip if it's the PM assigning to themselves)
+    // notify the new assignee (skip self)
     if (newAssigneeId && newAssigneeId !== req.user.id) {
       await notifyAssignment(req.io, req.connectedUsers, newAssigneeId, updatedTask);
     }
