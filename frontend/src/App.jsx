@@ -15,7 +15,24 @@ import Navbar from "./components/common/Navbar";
 function ProtectedRoute({ children, allowedRoles }) {
   const { token, user } = useAuth();
   if (!token) return <Navigate to="/login" replace />;
+  if (user?.mustResetPassword) return <Navigate to="/reset-password" replace />;
   if (allowedRoles && !allowedRoles.includes(user?.role)) return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
+function ResetPasswordRoute({ children }) {
+  const { token, user } = useAuth();
+  if (!token) return <Navigate to="/login" replace />;
+  if (!user?.mustResetPassword) return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
+function PublicRoute({ children }) {
+  const { token, user } = useAuth();
+  if (token) {
+    if (user?.mustResetPassword) return <Navigate to="/reset-password" replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
   return children;
 }
 
@@ -36,8 +53,22 @@ function MainLayout({ children }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route 
+        path="/login" 
+        element={
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        } 
+      />
+      <Route 
+        path="/reset-password" 
+        element={
+          <ResetPasswordRoute>
+            <ResetPassword />
+          </ResetPasswordRoute>
+        } 
+      />
       <Route 
         path="/dashboard" 
         element={
