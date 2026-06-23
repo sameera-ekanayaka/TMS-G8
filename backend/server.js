@@ -46,6 +46,7 @@ io.use((socket, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.userId = decoded.id;
+    socket.userRole = decoded.role;
     next();
   } catch (err) {
     next(new Error("Authentication error: invalid or expired token"));
@@ -54,6 +55,13 @@ io.use((socket, next) => {
 
 io.on("connection", (socket) => {
   connectedUsers[socket.userId] = socket.id;
+
+  // personal room per user + a shared "managers" room, so task events go to
+  // managers and the task's assignees only, not to everyone
+  socket.join(`user:${socket.userId}`);
+  if (socket.userRole === "ADMIN" || socket.userRole === "PROJECT_MANAGER") {
+    socket.join("managers");
+  }
   console.log(`User ${socket.userId} connected with socket ${socket.id}`);
 
   socket.on("disconnect", () => {
