@@ -48,21 +48,21 @@ const Tasks = () => {
       fetchTasks();
     };
 
-    const handleTaskStatusChanged = ({ taskId, newStatus }) => {
-      console.log('📝 Real-time: Task status changed', taskId, newStatus);
+    const handleTaskStatusChanged = (data) => {
+      console.log('📝 Real-time: Task status changed', data);
       fetchTasks();
     };
 
     socket.on('taskCreated', handleTaskCreated);
     socket.on('taskUpdated', handleTaskUpdated);
     socket.on('taskDeleted', handleTaskDeleted);
-    socket.on('taskStatusChanged', handleTaskStatusChanged);
+    socket.on('task_status_changed', handleTaskStatusChanged);
 
     return () => {
       socket.off('taskCreated', handleTaskCreated);
       socket.off('taskUpdated', handleTaskUpdated);
       socket.off('taskDeleted', handleTaskDeleted);
-      socket.off('taskStatusChanged', handleTaskStatusChanged);
+      socket.off('task_status_changed', handleTaskStatusChanged);
     };
   }, [socket, fetchTasks]);
 

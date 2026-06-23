@@ -166,7 +166,7 @@ export const TaskProvider = ({ children }) => {
       socket.off('taskCreated');
       socket.off('taskUpdated');
       socket.off('taskDeleted');
-      socket.off('taskStatusChanged');
+      socket.off('task_status_changed');
     };
   }, [socket]);
 
