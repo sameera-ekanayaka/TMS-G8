@@ -16,11 +16,25 @@ export const TaskProvider = ({ children }) => {
 
   const { token } = useAuth();
 
+  const backendToFrontendPriority = {
+    LOW: 'Low',
+    MEDIUM: 'Medium',
+    HIGH: 'High'
+  };
+
+  const backendToFrontendStatus = {
+    TODO: 'To Do',
+    IN_PROGRESS: 'In Progress',
+    COMPLETED: 'Completed'
+  };
+
   // Helper to transform task data for UI consumption (assignedUser, assignedUserId)
   const transformTask = (task) => {
     if (!task) return task;
     return {
       ...task,
+      priority: backendToFrontendPriority[task.priority] || task.priority,
+      status: backendToFrontendStatus[task.status] || task.status,
       assignedUser: task.assignments?.[0]?.user?.name || null,
       assignedUserId: task.assignments?.[0]?.user?.id || '',
     };
@@ -47,7 +61,12 @@ export const TaskProvider = ({ children }) => {
     if (!token) return;
     setLoading(true);
     try {
-      const response = await createTask(token, taskData);
+      const payload = {
+        ...taskData,
+        priority: taskData.priority ? taskData.priority.toUpperCase() : undefined,
+        status: taskData.status ? (taskData.status === 'To Do' ? 'TODO' : taskData.status === 'In Progress' ? 'IN_PROGRESS' : 'COMPLETED') : undefined,
+      };
+      const response = await createTask(token, payload);
       setTasks(prev => [...prev, transformTask(response.data.task)]);
       setError(null);
       return response.data;
@@ -64,7 +83,12 @@ export const TaskProvider = ({ children }) => {
     if (!token) return;
     setLoading(true);
     try {
-      const response = await updateTask(token, taskId, taskData);
+      const payload = {
+        ...taskData,
+        priority: taskData.priority ? taskData.priority.toUpperCase() : undefined,
+        status: taskData.status ? (taskData.status === 'To Do' ? 'TODO' : taskData.status === 'In Progress' ? 'IN_PROGRESS' : 'COMPLETED') : undefined,
+      };
+      const response = await updateTask(token, taskId, payload);
       setTasks(prev => prev.map(task => 
         task.id === taskId ? transformTask(response.data.task) : task
       ));
@@ -98,7 +122,8 @@ export const TaskProvider = ({ children }) => {
   const changeTaskStatus = async (taskId, status) => {
     if (!token) return;
     try {
-      const response = await updateTaskStatus(token, taskId, status);
+      const backendStatus = status === 'To Do' ? 'TODO' : status === 'In Progress' ? 'IN_PROGRESS' : 'COMPLETED';
+      const response = await updateTaskStatus(token, taskId, backendStatus);
       setTasks(prev => prev.map(task => 
         task.id === taskId ? transformTask(response.data.task) : task
       ));
@@ -127,10 +152,14 @@ export const TaskProvider = ({ children }) => {
       setTasks(prev => prev.filter(task => task.id !== taskId));
     });
 
-    socket.on('taskStatusChanged', ({ taskId, newStatus }) => {
-      setTasks(prev => prev.map(task => 
-        task.id === taskId ? { ...task, status: newStatus } : task
-      ));
+    socket.on('task_status_changed', (data) => {
+      const taskId = data.taskId || (data.task && data.task.id);
+      const newStatus = data.newStatus || (data.task && data.task.status);
+      if (taskId && newStatus) {
+        setTasks(prev => prev.map(task => 
+          task.id === taskId ? { ...task, status: backendToFrontendStatus[newStatus] || newStatus } : task
+        ));
+      }
     });
 
     return () => {
