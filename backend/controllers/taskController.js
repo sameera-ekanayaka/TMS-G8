@@ -13,7 +13,7 @@ const prisma = new PrismaClient();
 // Returns: { message, task }
 const createTask = async (req, res) => {
   try {
-    const { title, description, priority, dueDate } = req.body;
+    const { title, description, priority, dueDate, assignedUserId } = req.body;
     const userId = req.user.id; // From protect middleware
 
     // Validate required fields
@@ -46,6 +46,30 @@ const createTask = async (req, res) => {
       }
     }
 
+    // Validate assigned user if provided
+    if (assignedUserId && assignedUserId !== "") {
+      const parsedAssignedUserId = parseInt(assignedUserId);
+      if (isNaN(parsedAssignedUserId) || parsedAssignedUserId <= 0) {
+        return res.status(400).json({
+          error: "Validation Error",
+          message: "assignedUserId must be a valid positive number",
+        });
+      }
+      const userExists = await prisma.user.findUnique({ where: { id: parsedAssignedUserId } });
+      if (!userExists) {
+        return res.status(404).json({
+          error: "Not Found",
+          message: "Assigned user not found",
+        });
+      }
+      if (!userExists.isActive) {
+        return res.status(400).json({
+          error: "Validation Error",
+          message: "Cannot assign task to a deactivated user",
+        });
+      }
+    }
+
     // Create the task with defaults: status=TODO, priority=MEDIUM if not provided
     const newTask = await prisma.task.create({
       data: {
@@ -55,6 +79,11 @@ const createTask = async (req, res) => {
         status: "TODO",
         dueDate: dueDate ? new Date(dueDate) : null,
         createdById: userId,
+        assignments: assignedUserId ? {
+          create: {
+            userId: parseInt(assignedUserId)
+          }
+        } : undefined
       },
       include: {
         createdBy: {
@@ -238,7 +267,7 @@ const getTaskById = async (req, res) => {
 const updateTask = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, priority, dueDate } = req.body;
+    const { title, description, priority, dueDate, assignedUserId } = req.body;
 
     // Validate task ID
     const taskId = parseInt(id);
@@ -285,6 +314,50 @@ const updateTask = async (req, res) => {
       }
     }
 
+    // Validate assigned user if provided
+    if (assignedUserId !== undefined && assignedUserId !== null && assignedUserId !== "") {
+      const parsedAssignedUserId = parseInt(assignedUserId);
+      if (isNaN(parsedAssignedUserId) || parsedAssignedUserId <= 0) {
+        return res.status(400).json({
+          error: "Validation Error",
+          message: "assignedUserId must be a valid positive number",
+        });
+      }
+      const userExists = await prisma.user.findUnique({ where: { id: parsedAssignedUserId } });
+      if (!userExists) {
+        return res.status(404).json({
+          error: "Not Found",
+          message: "Assigned user not found",
+        });
+      }
+      if (!userExists.isActive) {
+        return res.status(400).json({
+          error: "Validation Error",
+          message: "Cannot assign task to a deactivated user",
+        });
+      }
+    }
+
+    // Handle assignment if assignedUserId is provided
+    let assignmentsUpdate = undefined;
+    if (assignedUserId !== undefined) {
+      // Clear existing assignments for this task
+      await prisma.taskAssignment.deleteMany({
+        where: { taskId },
+      });
+
+      if (assignedUserId && assignedUserId !== "") {
+        const parsedAssignedUserId = parseInt(assignedUserId);
+        if (!isNaN(parsedAssignedUserId) && parsedAssignedUserId > 0) {
+          assignmentsUpdate = {
+            create: {
+              userId: parsedAssignedUserId,
+            },
+          };
+        }
+      }
+    }
+
     // Update the task
     const updatedTask = await prisma.task.update({
       where: { id: taskId },
@@ -293,6 +366,7 @@ const updateTask = async (req, res) => {
         description: description ? description.trim() : undefined,
         priority: priority || undefined,
         dueDate: dueDate ? new Date(dueDate) : undefined,
+        assignments: assignmentsUpdate,
       },
       include: {
         createdBy: {
