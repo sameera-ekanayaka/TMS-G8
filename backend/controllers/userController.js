@@ -201,8 +201,7 @@ const updateUser = async (req, res) => {
       });
     }
 
-    // Don't allow demoting the last active admin — that would lock everyone
-    // out of user management.
+    // don't let the last active admin be demoted, or nobody can manage users
     if (role && existing.role === "ADMIN" && role !== "ADMIN") {
       const activeAdminCount = await prisma.user.count({
         where: { role: "ADMIN", isActive: true },

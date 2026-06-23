@@ -6,10 +6,8 @@
 const prisma = require("../lib/prisma");
 
 // ════════ Helper: notify a user that a task was assigned to them ══════════════
-// Saves a persistent notification (so offline users see it later) and, if the
-// user is currently connected, pushes a real-time event. Used by createTask and
-// updateTask so assigning through the normal task form actually notifies people
-// (previously only the separate /assign endpoint did this).
+// Saves the notification and pushes a live event if the user is online.
+// createTask/updateTask use this so assigning from the form notifies people.
 const notifyAssignment = async (io, connectedUsers, assigneeId, task) => {
   const message = `You have been assigned a new task: "${task.title}"`;
   const dbNotification = await prisma.notification.create({
@@ -32,9 +30,8 @@ const notifyAssignment = async (io, connectedUsers, assigneeId, task) => {
 };
 
 // ════════ Helper: emit a task event only to people allowed to see it ═════════
-// Recipients = all managers (ADMIN/PROJECT_MANAGER see every task) + the users
-// assigned to this task. Avoids the old io.emit() broadcast that sent every
-// task to every connected client, including collaborators with no access.
+// Goes to managers (they see every task) + the task's assignees, instead of
+// io.emit() which sent every task to every connected client.
 const emitTaskEvent = (io, event, payload, assigneeIds = []) => {
   if (!io) return;
   let target = io.to("managers");
@@ -136,7 +133,7 @@ const createTask = async (req, res) => {
       },
     });
 
-    // Notify the assignee (if any, and not the creator assigning to themselves)
+    // notify the assignee (skip if the PM assigned it to themselves)
     if (assignedUserId) {
       const assigneeId = parseInt(assignedUserId);
       if (assigneeId !== userId) {
@@ -385,9 +382,9 @@ const updateTask = async (req, res) => {
     // Handle assignment if assignedUserId is provided
     let assignmentsUpdate = undefined;
     let newAssigneeId = null; // set only when assignment changes to a new user
-    let previousAssigneeIds = []; // used to also notify removed assignees' clients
+    let previousAssigneeIds = []; // so we can also update a removed assignee's board
     if (assignedUserId !== undefined) {
-      // Remember who was assigned before so we don't re-notify the same person
+      // who was assigned before, so we don't re-notify the same person
       const previousAssignments = await prisma.taskAssignment.findMany({
         where: { taskId },
         select: { userId: true },
@@ -437,13 +434,12 @@ const updateTask = async (req, res) => {
       },
     });
 
-    // Notify the new assignee (skip if it's the PM assigning to themselves)
+    // notify the new assignee (skip self)
     if (newAssigneeId && newAssigneeId !== req.user.id) {
       await notifyAssignment(req.io, req.connectedUsers, newAssigneeId, updatedTask);
     }
 
-    // Notify both current and previous assignees so a removed assignee's board
-    // updates too (the task should disappear from their view).
+    // include previous assignees too, so a removed person's board updates
     const currentAssigneeIds = updatedTask.assignments.map((a) => a.userId);
     const affectedAssigneeIds = [
       ...new Set([...currentAssigneeIds, ...previousAssigneeIds]),
@@ -480,7 +476,7 @@ const deleteTask = async (req, res) => {
       });
     }
 
-    // Check if task exists (load assignments so we know who to notify)
+    // load assignments too so we know whose board to update
     const task = await prisma.task.findUnique({
       where: { id: taskId },
       include: { assignments: { select: { userId: true } } },
@@ -749,9 +745,8 @@ const updateTaskStatus = async (req, res) => {
       `✅ Persistent notifications saved + real-time events sent: Task ${taskId} status changed to ${status}`
     );
 
-    // Sync the updated task to managers + assignees (scoped, not a global
-    // broadcast). The per-assignee "task_status_changed" notification events
-    // above still carry the human-readable message for the notification panel.
+    // push the updated task to managers + assignees. the per-user status
+    // events above still carry the message for the notification panel.
     emitTaskEvent(req.io, "taskUpdated", updatedTask, assignedUserIds);
 
     return res.status(200).json({
