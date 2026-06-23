@@ -24,7 +24,7 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
     const fetchUsers = async () => {
       try {
         const response = await getUsers(token);
-        setUsers(response.data);
+        setUsers(response.data.users || []);
       } catch (error) {
         console.error('Failed to fetch users:', error);
       }
