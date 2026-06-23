@@ -6,6 +6,30 @@ const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 
+// ════════ Helper: notify a user that a task was assigned to them ══════════════
+// Saves the notification and pushes a live event if the user is online.
+// createTask/updateTask use this so assigning from the form notifies people.
+const notifyAssignment = async (io, connectedUsers, assigneeId, task) => {
+  const message = `You have been assigned a new task: "${task.title}"`;
+  const dbNotification = await prisma.notification.create({
+    data: { message, userId: assigneeId, isRead: false },
+  });
+
+  if (io && connectedUsers && connectedUsers[assigneeId]) {
+    io.to(connectedUsers[assigneeId]).emit("task_assigned", {
+      message,
+      task: {
+        id: task.id,
+        title: task.title,
+        priority: task.priority,
+        dueDate: task.dueDate,
+      },
+      timestamp: new Date(),
+    });
+    io.to(connectedUsers[assigneeId]).emit("notification", dbNotification);
+  }
+};
+
 // ════════ POST /api/tasks ════════════════════════════════════════════════════
 // Create a new task
 // Only PROJECT_MANAGER can create tasks
@@ -97,6 +121,14 @@ const createTask = async (req, res) => {
         comments: true,
       },
     });
+
+    // notify the assignee (skip if the PM assigned it to themselves)
+    if (assignedUserId) {
+      const assigneeId = parseInt(assignedUserId);
+      if (assigneeId !== userId) {
+        await notifyAssignment(req.io, req.connectedUsers, assigneeId, newTask);
+      }
+    }
 
     const io = req.io;
     if (io) {
@@ -340,7 +372,15 @@ const updateTask = async (req, res) => {
 
     // Handle assignment if assignedUserId is provided
     let assignmentsUpdate = undefined;
+    let newAssigneeId = null; // set only when assignment changes to a new user
     if (assignedUserId !== undefined) {
+      // who was assigned before, so we don't re-notify the same person
+      const previousAssignments = await prisma.taskAssignment.findMany({
+        where: { taskId },
+        select: { userId: true },
+      });
+      const previousAssigneeIds = previousAssignments.map((a) => a.userId);
+
       // Clear existing assignments for this task
       await prisma.taskAssignment.deleteMany({
         where: { taskId },
@@ -354,6 +394,9 @@ const updateTask = async (req, res) => {
               userId: parsedAssignedUserId,
             },
           };
+          if (!previousAssigneeIds.includes(parsedAssignedUserId)) {
+            newAssigneeId = parsedAssignedUserId;
+          }
         }
       }
     }
@@ -380,6 +423,11 @@ const updateTask = async (req, res) => {
         comments: true,
       },
     });
+
+    // notify the new assignee (skip self)
+    if (newAssigneeId && newAssigneeId !== req.user.id) {
+      await notifyAssignment(req.io, req.connectedUsers, newAssigneeId, updatedTask);
+    }
 
     const io = req.io;
     if (io) {
