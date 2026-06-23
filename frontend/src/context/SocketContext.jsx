@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import io from 'socket.io-client';
+import { useAuth } from './AuthContext';
 
 const SocketContext = createContext();
 
@@ -9,12 +10,13 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
+  const { token } = useAuth();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    
     if (!token) {
       console.log('⚠️ No token found, skipping socket connection');
+      setSocket(null);
+      setIsConnected(false);
       return;
     }
 
@@ -67,12 +69,12 @@ export const SocketProvider = ({ children }) => {
 
     setSocket(newSocket);
 
-    // Cleanup on unmount
+    // Cleanup on unmount or token change
     return () => {
       console.log('🔌 Closing socket connection');
       newSocket.close();
     };
-  }, []);
+  }, [token]);
 
   const clearNotifications = () => {
     setNotifications([]);

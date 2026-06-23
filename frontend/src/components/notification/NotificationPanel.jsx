@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Bell, X, CheckCircle, Clock, UserPlus, MessageSquare, AlertCircle } from 'lucide-react';
 import { useSocket } from '../../context/SocketContext';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 const NotificationPanel = () => {
   const [notifications, setNotifications] = useState([]);
@@ -9,7 +10,7 @@ const NotificationPanel = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { socket, isConnected } = useSocket();
-  const token = localStorage.getItem('token');
+  const { token } = useAuth();
 
   // Fetch notifications from API
   const fetchNotifications = async () => {
