@@ -5,9 +5,8 @@
 // Member 1 (Sameera)
 
 const jwt = require("jsonwebtoken");
-const { PrismaClient } = require("@prisma/client");
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 // ─── protect ─────────────────────────────────────────────────
 // Usage: router.get('/route', protect, handler)

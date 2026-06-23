@@ -2,9 +2,8 @@
 // Handles task CRUD operations with real-time Socket.io notifications
 // Member 2 (Subanya)
 
-const { PrismaClient } = require("@prisma/client");
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 // ════════ Helper: notify a user that a task was assigned to them ══════════════
 // Saves the notification and pushes a live event if the user is online.

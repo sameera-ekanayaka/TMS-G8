@@ -3,9 +3,8 @@
 // Runs every hour to check for tasks with approaching deadlines
 // Member 2 (Subanya)
 
-const { PrismaClient } = require("@prisma/client");
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 // ════════ Check Deadline and Create Notifications ════════════════════════
 // This function:

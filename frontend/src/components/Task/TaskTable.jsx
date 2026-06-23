@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useTasks } from '../../context/TaskContext';
-import { Calendar, User, Tag, Edit2, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Calendar, User, Tag, Edit2, Trash2, ChevronUp, ChevronDown, Eye } from 'lucide-react';
 
-const TaskTable = ({ tasks, onEdit, onView }) => {
+const TaskTable = ({ tasks, onEdit, onView, canManage = true }) => {
   const { changeTaskStatus, removeTask } = useTasks();
   const [sortField, setSortField] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc');
@@ -164,18 +164,31 @@ const TaskTable = ({ tasks, onEdit, onView }) => {
               </td>
               <td className="px-4 py-3">
                 <div className="flex items-center justify-end gap-2">
-                  <button
-                    onClick={() => onEdit(task)}
-                    className="p-1 text-gray-400 hover:text-blue-500 rounded hover:bg-blue-50 transition-colors"
-                  >
-                    <Edit2 size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(task.id)}
-                    className="p-1 text-gray-400 hover:text-red-500 rounded hover:bg-red-50 transition-colors"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  {onView && (
+                    <button
+                      onClick={() => onView(task)}
+                      className="p-1 text-gray-400 hover:text-gray-700 rounded hover:bg-gray-100 transition-colors"
+                      title="View details"
+                    >
+                      <Eye size={16} />
+                    </button>
+                  )}
+                  {canManage && (
+                    <>
+                      <button
+                        onClick={() => onEdit(task)}
+                        className="p-1 text-gray-400 hover:text-blue-500 rounded hover:bg-blue-50 transition-colors"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(task.id)}
+                        className="p-1 text-gray-400 hover:text-red-500 rounded hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </>
+                  )}
                 </div>
               </td>
             </tr>
