@@ -16,13 +16,23 @@ export const TaskProvider = ({ children }) => {
 
   const { token } = useAuth();
 
+  // Helper to transform task data for UI consumption (assignedUser, assignedUserId)
+  const transformTask = (task) => {
+    if (!task) return task;
+    return {
+      ...task,
+      assignedUser: task.assignments?.[0]?.user?.name || null,
+      assignedUserId: task.assignments?.[0]?.user?.id || '',
+    };
+  };
+
   // Fetch tasks with filters
   const fetchTasks = async (filterParams = filters) => {
     if (!token) return;
     setLoading(true);
     try {
       const response = await getTasks(token, filterParams);
-      setTasks(response.data);
+      setTasks((response.data.tasks || []).map(transformTask));
       setError(null);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch tasks');
@@ -38,7 +48,7 @@ export const TaskProvider = ({ children }) => {
     setLoading(true);
     try {
       const response = await createTask(token, taskData);
-      setTasks(prev => [...prev, response.data]);
+      setTasks(prev => [...prev, transformTask(response.data.task)]);
       setError(null);
       return response.data;
     } catch (err) {
@@ -56,7 +66,7 @@ export const TaskProvider = ({ children }) => {
     try {
       const response = await updateTask(token, taskId, taskData);
       setTasks(prev => prev.map(task => 
-        task.id === taskId ? response.data : task
+        task.id === taskId ? transformTask(response.data.task) : task
       ));
       setError(null);
       return response.data;
@@ -90,7 +100,7 @@ export const TaskProvider = ({ children }) => {
     try {
       const response = await updateTaskStatus(token, taskId, status);
       setTasks(prev => prev.map(task => 
-        task.id === taskId ? response.data : task
+        task.id === taskId ? transformTask(response.data.task) : task
       ));
       return response.data;
     } catch (err) {
@@ -104,12 +114,12 @@ export const TaskProvider = ({ children }) => {
     if (!socket) return;
 
     socket.on('taskCreated', (newTask) => {
-      setTasks(prev => [...prev, newTask]);
+      setTasks(prev => [...prev, transformTask(newTask)]);
     });
 
     socket.on('taskUpdated', (updatedTask) => {
       setTasks(prev => prev.map(task => 
-        task.id === updatedTask.id ? updatedTask : task
+        task.id === updatedTask.id ? transformTask(updatedTask) : task
       ));
     });
 
