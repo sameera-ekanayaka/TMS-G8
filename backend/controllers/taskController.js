@@ -69,6 +69,11 @@ const createTask = async (req, res) => {
       },
     });
 
+    const io = req.io;
+    if (io) {
+      io.emit("taskCreated", newTask);
+    }
+
     return res.status(201).json({
       message: "Task created successfully",
       task: newTask,
@@ -302,6 +307,11 @@ const updateTask = async (req, res) => {
       },
     });
 
+    const io = req.io;
+    if (io) {
+      io.emit("taskUpdated", updatedTask);
+    }
+
     return res.status(200).json({
       message: "Task updated successfully",
       task: updatedTask,
@@ -343,6 +353,11 @@ const deleteTask = async (req, res) => {
 
     // Delete the task (Prisma cascade delete handles assignments & comments)
     await prisma.task.delete({ where: { id: taskId } });
+
+    const io = req.io;
+    if (io) {
+      io.emit("taskDeleted", taskId);
+    }
 
     return res.status(200).json({
       message: "Task deleted successfully",
@@ -593,6 +608,14 @@ const updateTaskStatus = async (req, res) => {
     console.log(
       `✅ Persistent notifications saved + real-time events sent: Task ${taskId} status changed to ${status}`
     );
+
+    if (io) {
+      io.emit("task_status_changed", {
+        taskId: updatedTask.id,
+        newStatus: updatedTask.status,
+        task: updatedTask,
+      });
+    }
 
     return res.status(200).json({
       message: "Task status updated successfully",

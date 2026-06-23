@@ -79,14 +79,14 @@ const NotificationPanel = () => {
 
     // Handle task comment events (if backend supports)
     const handleTaskCommented = (data) => {
-      console.log('💬 Task commented:', data);
+      console.log('💬 Comment added:', data);
       const newNotification = {
         id: data.id || Date.now(),
         message: data.message || `New comment on "${data.taskTitle}"`,
         type: 'comment',
         createdAt: data.timestamp || new Date().toISOString(),
         isRead: false,
-        taskId: data.taskId,
+        taskId: data.taskId || (data.task && data.task.id),
       };
       setNotifications(prev => [newNotification, ...prev]);
       setUnreadCount(prev => prev + 1);
@@ -110,7 +110,7 @@ const NotificationPanel = () => {
     // Register event listeners
     socket.on('task_assigned', handleTaskAssigned);
     socket.on('task_status_changed', handleTaskStatusChanged);
-    socket.on('task_commented', handleTaskCommented);
+    socket.on('comment_added', handleTaskCommented);
     socket.on('deadline_approaching', handleDeadlineApproaching);
 
     // Handle reconnection - fetch missed notifications
@@ -125,7 +125,7 @@ const NotificationPanel = () => {
     return () => {
       socket.off('task_assigned', handleTaskAssigned);
       socket.off('task_status_changed', handleTaskStatusChanged);
-      socket.off('task_commented', handleTaskCommented);
+      socket.off('comment_added', handleTaskCommented);
       socket.off('deadline_approaching', handleDeadlineApproaching);
       socket.off('connect', handleReconnect);
     };
