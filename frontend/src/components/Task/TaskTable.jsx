@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTasks } from '../../context/TaskContext';
 import { Calendar, User, Tag, Edit2, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 
-const TaskTable = ({ tasks, onEdit }) => {
+const TaskTable = ({ tasks, onEdit, onView }) => {
   const { changeTaskStatus, removeTask } = useTasks();
   const [sortField, setSortField] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc');
@@ -129,8 +129,12 @@ const TaskTable = ({ tasks, onEdit }) => {
           {sortedTasks.map((task) => (
             <tr key={task.id} className="hover:bg-gray-50 transition-colors">
               <td className="px-4 py-3">
-                <div>
-                  <p className="font-medium text-gray-900">{task.title}</p>
+                <div
+                  className={onView ? 'cursor-pointer' : ''}
+                  onClick={() => onView && onView(task)}
+                  title={onView ? 'View details, comments and attachments' : undefined}
+                >
+                  <p className="font-medium text-gray-900 hover:text-blue-600">{task.title}</p>
                   {task.description && (
                     <p className="text-sm text-gray-500 truncate max-w-xs">{task.description}</p>
                   )}
