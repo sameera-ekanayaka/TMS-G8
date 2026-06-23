@@ -3,9 +3,8 @@
 // Only return notifications for the logged-in user
 // Member 2 (Subanya)
 
-const { PrismaClient } = require("@prisma/client");
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 // ════════ GET /api/notifications ════════════════════════════════════════════
 // Get all notifications for the logged-in user

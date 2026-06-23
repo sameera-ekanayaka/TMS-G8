@@ -1,9 +1,8 @@
 // backend/controllers/attachmentController.js
 const path = require("path");
 const fs = require("fs");
-const { PrismaClient } = require("@prisma/client");
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 // POST /api/tasks/:id/attachments
 const uploadAttachment = async (req, res) => {
