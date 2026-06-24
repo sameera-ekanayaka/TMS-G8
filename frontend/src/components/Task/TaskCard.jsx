@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Calendar, User, MoreVertical, Edit2, Trash2, Check, Eye, Folder } from 'lucide-react';
 import { useTasks } from '../../context/TaskContext';
+import { useAuth } from '../../context/AuthContext';
 
 const TaskCard = ({ task, onEdit, onView, canManage = true }) => {
   const { changeTaskStatus, removeTask } = useTasks();
+  const { user } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
 
   const getPriorityColor = (priority) => {
@@ -60,6 +62,17 @@ const TaskCard = ({ task, onEdit, onView, canManage = true }) => {
           title={onView ? 'View details, comments and attachments' : undefined}
         >
           <h4 className="font-medium text-gray-900 line-clamp-2">{task.title}</h4>
+          {task.project && (
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 mt-1">
+              <Folder size={10} />
+              {task.project.name}
+            </span>
+          )}
+          {task.assignedUserId === user?.id && (
+            <span className="inline-block mt-1 ml-1 px-2 py-0.5 text-[10px] font-semibold bg-green-100 text-green-800 rounded-full border border-green-200">
+              Assigned to me
+            </span>
+          )}
           {task.description && (
             <p className="text-sm text-gray-600 line-clamp-2 mt-1">{task.description}</p>
           )}
@@ -154,13 +167,7 @@ const TaskCard = ({ task, onEdit, onView, canManage = true }) => {
             {task.assignedUser}
           </span>
         )}
-        
-        {task.project && (
-          <span className="text-xs flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-100 text-indigo-800">
-            <Folder size={12} />
-            {task.project.name}
-          </span>
-        )}
+
       </div>
     </div>
   );

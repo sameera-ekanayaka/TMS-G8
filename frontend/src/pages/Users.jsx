@@ -7,6 +7,7 @@ import {
   deactivateUser,
   activateUser,
 } from "../services/api";
+import toast from "react-hot-toast";
 
 export default function Users() {
   const { token } = useAuth();
@@ -99,16 +100,21 @@ export default function Users() {
         await updateUser(token, editingUser.id, formData);
         await fetchUsers();
         closeModal();
+        toast.success("User updated successfully!");
       } else {
         const response = await createUser(token, formData);
         const createdPassword = response.data.tempPassword;
         await fetchUsers();
         closeModal();
-        alert(`User created successfully!\n\nTemporary Password: ${createdPassword}\n\nPlease share this password with the user.`);
+        toast.success(
+          <span>User created!<br/>Temp Password: <b>{createdPassword}</b></span>,
+          { duration: 8000 }
+        );
       }
     } catch (err) {
       const message = err.response?.data?.message || "Something went wrong.";
       setFormError(message);
+      toast.error(message);
     } finally {
       setFormLoading(false);
     }
@@ -119,8 +125,10 @@ export default function Users() {
     try {
       await deactivateUser(token, id);
       await fetchUsers();
+      toast.success("User deactivated.");
     } catch (err) {
       setError("Failed to deactivate user.");
+      toast.error("Failed to deactivate user.");
     }
   }
 
@@ -129,8 +137,10 @@ export default function Users() {
     try {
       await activateUser(token, id);
       await fetchUsers();
+      toast.success("User activated.");
     } catch (err) {
       setError("Failed to activate user.");
+      toast.error("Failed to activate user.");
     }
   }
 
@@ -189,48 +199,54 @@ export default function Users() {
             No users found.
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="flex flex-col gap-4">
             {filteredUsers.map((user) => (
               <div
                 key={user.id}
-                className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col items-center text-center relative overflow-hidden"
+                className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden"
               >
-                <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
+                <div className="absolute left-0 inset-y-0 w-1.5 bg-gradient-to-b from-indigo-500 via-purple-500 to-pink-500" />
                 
-                <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-indigo-100 to-purple-100 flex items-center justify-center text-xl font-bold text-indigo-700 shadow-inner mb-4 mt-2">
-                  {user.name.charAt(0).toUpperCase()}
+                {/* Left: Avatar + Info */}
+                <div className="flex items-center gap-4 w-full sm:w-1/3">
+                  <div className="w-12 h-12 shrink-0 rounded-full bg-gradient-to-tr from-indigo-100 to-purple-100 flex items-center justify-center text-lg font-bold text-indigo-700 shadow-inner">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-gray-900 text-base tracking-tight truncate">
+                      {user.name}
+                    </h3>
+                    <p className="text-sm text-gray-500 truncate" title={user.email}>
+                      {user.email}
+                    </p>
+                  </div>
                 </div>
 
-                <h3 className="font-semibold text-gray-900 text-lg tracking-tight mb-1">
-                  {user.name}
-                </h3>
-                <p className="text-sm text-gray-500 mb-4 select-all break-all w-full px-2" title={user.email}>
-                  {user.email}
-                </p>
-
-                <div className="flex flex-wrap gap-2 justify-center mb-6">
+                {/* Middle: Badges */}
+                <div className="flex items-center gap-3 w-full sm:w-1/3 sm:justify-center">
                   <RoleBadge role={user.role} />
                   <StatusBadge active={user.isActive} />
                 </div>
 
-                <div className="mt-auto w-full pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
+                {/* Right: Actions */}
+                <div className="flex items-center gap-2 w-full sm:w-auto sm:justify-end shrink-0">
                   <button
                     onClick={() => openEditModal(user)}
-                    className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-semibold py-2 px-3 rounded-xl border border-gray-200 transition-colors duration-150"
+                    className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-semibold rounded-xl border border-gray-200 transition-colors duration-150"
                   >
                     Edit
                   </button>
                   {user.isActive ? (
                     <button
                       onClick={() => handleDeactivate(user.id)}
-                      className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold py-2 px-3 rounded-xl border border-red-100 transition-colors duration-150"
+                      className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-xl border border-red-100 transition-colors duration-150"
                     >
                       Deactivate
                     </button>
                   ) : (
                     <button
                       onClick={() => handleActivate(user.id)}
-                      className="flex-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold py-2 px-3 rounded-xl border border-green-100 transition-colors duration-150"
+                      className="px-4 py-2 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold rounded-xl border border-green-100 transition-colors duration-150"
                     >
                       Activate
                     </button>

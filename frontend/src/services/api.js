@@ -56,6 +56,12 @@ export const createComment = (token, taskId, content) =>
     authHeader(token)
   );
 
+export const updateComment = (token, commentId, content) =>
+  api.put(`/api/tasks/comments/${commentId}`, { content }, authHeader(token));
+
+export const deleteComment = (token, commentId) =>
+  api.delete(`/api/tasks/comments/${commentId}`, authHeader(token));
+
 // ════════ ATTACHMENT ENDPOINTS ══════════════════════════════════════════════
 export const getAttachments = (token, taskId) =>
   api.get(`/api/tasks/${taskId}/attachments`, authHeader(token));
@@ -76,6 +82,9 @@ export const uploadAttachment = (token, taskId, file) => {
     }
   );
 };
+
+export const deleteAttachment = (token, attachmentId) =>
+  api.delete(`/api/tasks/attachments/${attachmentId}`, authHeader(token));
 
 // ════════ NOTIFICATION ENDPOINTS ════════════════════════════════════════════
 export const getNotifications = (token) => api.get("/api/notifications", authHeader(token));

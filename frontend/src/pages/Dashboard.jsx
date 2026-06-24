@@ -53,13 +53,18 @@ const Dashboard = () => {
   // Calculate stats when tasks change
   useEffect(() => {
     if (tasks && tasks.length > 0) {
-      const now = new Date();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
       const completed = tasks.filter(t => t.status === 'Completed').length;
       const inProgress = tasks.filter(t => t.status === 'In Progress').length;
       const todo = tasks.filter(t => t.status === 'To Do').length;
-      const overdue = tasks.filter(t => 
-        t.dueDate && new Date(t.dueDate) < now && t.status !== 'Completed'
-      ).length;
+      const overdue = tasks.filter(t => {
+        if (!t.dueDate || t.status === 'Completed') return false;
+        const dueDate = new Date(t.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate < today;
+      }).length;
       const highPriority = tasks.filter(t => t.priority === 'High').length;
       const mediumPriority = tasks.filter(t => t.priority === 'Medium').length;
       const lowPriority = tasks.filter(t => t.priority === 'Low').length;
@@ -415,9 +420,14 @@ const Dashboard = () => {
                       </span>
                       {task.dueDate && (
                         <span className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded-full ${
-                          new Date(task.dueDate) < new Date() && task.status !== 'Completed'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-gray-100 text-gray-600'
+                          (() => {
+                            if (task.status === 'Completed') return 'bg-gray-100 text-gray-600';
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const dueDate = new Date(task.dueDate);
+                            dueDate.setHours(0, 0, 0, 0);
+                            return dueDate < today ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600';
+                          })()
                         }`}>
                           <Calendar size={12} />
                           {formatDate(task.dueDate)}

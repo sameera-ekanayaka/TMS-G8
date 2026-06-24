@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useTasks } from '../../context/TaskContext';
 import { getUsers, getProjects } from '../../services/api';
+import toast from 'react-hot-toast';
 
 import { useAuth } from '../../context/AuthContext';
+
+const roleLabels = { ADMIN: 'Admin', PROJECT_MANAGER: 'Project Manager', COLLABORATOR: 'Collaborator' };
 
 const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
   const { addTask, editTask } = useTasks();
@@ -66,14 +69,16 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
 
       if (task) {
         await editTask(task.id, data);
+        toast.success("Task updated successfully!");
       } else {
         await addTask(data);
+        toast.success("Task created successfully!");
       }
       onSuccess?.();
       onClose();
     } catch (error) {
       console.error('Failed to save task:', error);
-      alert(error.response?.data?.message || 'Failed to save task');
+      toast.error(error.response?.data?.message || 'Failed to save task');
     } finally {
       setLoading(false);
     }
@@ -135,9 +140,9 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Unassigned</option>
-                {users.map(user => (
+                {users.filter(u => u.role !== 'ADMIN').map(user => (
                   <option key={user.id} value={user.id}>
-                    {user.name} ({user.email})
+                    {user.name} ({roleLabels[user.role] || user.role})
                   </option>
                 ))}
               </select>

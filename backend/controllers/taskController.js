@@ -180,7 +180,7 @@ const getTasks = async (req, res) => {
     }
 
     // Build sort object from query params
-    const validSortFields = ["createdAt", "dueDate", "priority", "status"];
+    const validSortFields = ["createdAt", "dueDate", "priority", "status", "projectId"];
     const sortField = sortBy && validSortFields.includes(sortBy) ? sortBy : "createdAt";
     const sortOrder = order === "asc" ? "asc" : "desc";
     const orderBy = { [sortField]: sortOrder };

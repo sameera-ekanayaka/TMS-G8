@@ -1,5 +1,6 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { TaskProvider } from "./context/TaskContext";
 import { SocketProvider } from "./context/SocketContext";  // ✅ This should work now
@@ -113,6 +114,7 @@ export default function App() {
       <SocketProvider>
         <TaskProvider>
           <BrowserRouter>
+            <Toaster position="top-right" />
             <AppRoutes />
           </BrowserRouter>
         </TaskProvider>

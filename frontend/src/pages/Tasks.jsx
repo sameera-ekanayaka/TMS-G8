@@ -3,13 +3,15 @@ import { useTasks } from '../context/TaskContext';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { Search, Filter, Plus, LayoutGrid, LayoutList, Kanban } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import TaskCard from '../components/Task/TaskCard';
 import TaskTable from '../components/Task/TaskTable';
 import TaskForm from '../components/Task/TaskForm';
 import TaskDetails from '../components/Task/TaskDetails';
+import { useSearchParams } from 'react-router-dom';
 
 const Tasks = () => {
-  const { tasks, loading, filters, setFilters, fetchTasks, addTask, editTask, removeTask } = useTasks();
+  const { tasks, loading, filters, setFilters, fetchTasks, addTask, editTask, removeTask, changeTaskStatus } = useTasks();
   const { socket } = useSocket();
   const { user } = useAuth();
   // only managers create/edit/delete. collaborators can still view and
@@ -20,20 +22,13 @@ const Tasks = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingTask, setEditingTask] = useState(null);
   const [viewingTask, setViewingTask] = useState(null);
-  const [viewMode, setViewMode] = useState('table'); // 'table', 'board'
+  const [viewMode, setViewMode] = useState('board'); // 'table', 'board'
 
   const statusOptions = ['All', 'To Do', 'In Progress', 'Completed'];
   const priorityOptions = ['All', 'Low', 'Medium', 'High'];
   const sortOptions = [
-    { value: 'dueDate', label: 'Due Date' },
-    { value: 'priority', label: 'Priority' },
-    { value: 'title', label: 'Title' },
-    { value: 'status', label: 'Status' },
-    { value: 'createdAt', label: 'Created Date' },
-  ];
-  const orderOptions = [
-    { value: 'asc', label: 'Ascending' },
-    { value: 'desc', label: 'Descending' },
+    { value: '', label: 'None' },
+    { value: 'projectId', label: 'Project' },
   ];
 
   // Real-time task updates via Socket.io
@@ -77,8 +72,23 @@ const Tasks = () => {
     fetchTasks();
   }, []);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTaskId = searchParams.get('taskId');
+
+  useEffect(() => {
+    if (urlTaskId && tasks.length > 0) {
+      const task = tasks.find(t => t.id === parseInt(urlTaskId));
+      if (task) {
+        setViewingTask(task);
+        setSearchParams({});
+      }
+    }
+  }, [urlTaskId, tasks, setSearchParams]);
+
   const handleFilterChange = (key, value) => {
-    setFilters({ ...filters, [key]: value === 'All' ? '' : value });
+    const newFilters = { ...filters, [key]: value === 'All' ? '' : value };
+    setFilters(newFilters);
+    fetchTasks(newFilters);
   };
 
   const handleSortChange = (key, value) => {
@@ -87,7 +97,7 @@ const Tasks = () => {
   };
 
   const handleResetFilters = () => {
-    const updatedFilters = { ...filters, sortBy: 'dueDate', order: 'asc' };
+    const updatedFilters = { status: '', priority: '', sortBy: '', order: '' };
     setFilters(updatedFilters);
     fetchTasks(updatedFilters);
   };
@@ -214,24 +224,11 @@ const Tasks = () => {
             <div>
               <label className="block text-sm text-gray-600 mb-1">Sort By</label>
               <select
-                value={filters.sortBy || 'dueDate'}
+                value={filters.sortBy !== undefined ? filters.sortBy : 'dueDate'}
                 onChange={(e) => handleSortChange('sortBy', e.target.value)}
                 className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {sortOptions.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Order</label>
-              <select
-                value={filters.order || 'asc'}
-                onChange={(e) => handleSortChange('order', e.target.value)}
-                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {orderOptions.map(option => (
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
@@ -278,29 +275,60 @@ const Tasks = () => {
           )}
 
           {viewMode === 'board' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {['To Do', 'In Progress', 'Completed'].map((status) => (
-                <div key={status} className="bg-gray-50 rounded-lg p-4 min-h-[300px]">
-                  <h3 className="font-medium mb-3">{status}</h3>
-                  <div className="space-y-3">
-                    {filteredTasks
-                      .filter(task => task.status === status)
-                      .map(task => (
-                        <TaskCard
-                          key={task.id}
-                          task={task}
-                          canManage={canManage}
-                          onView={() => setViewingTask(task)}
-                          onEdit={() => {
-                            setEditingTask(task);
-                            setShowTaskForm(true);
-                          }}
-                        />
-                      ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <DragDropContext
+              onDragEnd={async (result) => {
+                if (!result.destination) return;
+                const sourceStatus = result.source.droppableId;
+                const destStatus = result.destination.droppableId;
+                const taskId = isNaN(parseInt(result.draggableId)) ? result.draggableId : parseInt(result.draggableId);
+                
+                if (sourceStatus !== destStatus) {
+                  await changeTaskStatus(taskId, destStatus);
+                }
+              }}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {['To Do', 'In Progress', 'Completed'].map((status) => (
+                  <Droppable key={status} droppableId={status}>
+                    {(provided) => (
+                      <div
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                        className="bg-gray-50 rounded-lg p-4 min-h-[300px]"
+                      >
+                        <h3 className="font-medium mb-3">{status}</h3>
+                        <div className="space-y-3 min-h-[10px]">
+                          {filteredTasks
+                            .filter((task) => task.status === status)
+                            .map((task, index) => (
+                              <Draggable key={task.id} draggableId={task.id.toString()} index={index}>
+                                {(provided) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                  >
+                                    <TaskCard
+                                      task={task}
+                                      canManage={canManage}
+                                      onView={() => setViewingTask(task)}
+                                      onEdit={() => {
+                                        setEditingTask(task);
+                                        setShowTaskForm(true);
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                          {provided.placeholder}
+                        </div>
+                      </div>
+                    )}
+                  </Droppable>
+                ))}
+              </div>
+            </DragDropContext>
           )}
         </>
       )}

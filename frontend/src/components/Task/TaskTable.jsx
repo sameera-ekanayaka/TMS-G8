@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useTasks } from '../../context/TaskContext';
-import { Calendar, User, Tag, Edit2, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Calendar, User, Tag, Edit2, Trash2, ChevronUp, ChevronDown, Folder } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const TaskTable = ({ tasks, onEdit, onView, canManage = true }) => {
   const { changeTaskStatus, removeTask } = useTasks();
+  const { user } = useAuth();
   const [sortField, setSortField] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc');
 
@@ -135,6 +137,17 @@ const TaskTable = ({ tasks, onEdit, onView, canManage = true }) => {
                   title={onView ? 'View details, comments and attachments' : undefined}
                 >
                   <p className="font-medium text-gray-900 hover:text-blue-600">{task.title}</p>
+                  {task.project && (
+                    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 mt-1">
+                      <Folder size={10} />
+                      {task.project.name}
+                    </span>
+                  )}
+                  {task.assignedUserId === user?.id && (
+                    <span className="inline-block mt-1 ml-1 px-2 py-0.5 text-[10px] font-semibold bg-green-100 text-green-800 rounded-full border border-green-200">
+                      Assigned to me
+                    </span>
+                  )}
                   {task.description && (
                     <p className="text-sm text-gray-500 truncate max-w-xs">{task.description}</p>
                   )}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useSocket } from "../context/SocketContext";
 import {
   getProjects,
   createProject,
@@ -10,6 +11,7 @@ import {
 
 export default function Projects() {
   const { token, user } = useAuth();
+  const { socket } = useSocket();
   const canManage = user?.role === "ADMIN" || user?.role === "PROJECT_MANAGER";
 
   const [projects, setProjects] = useState([]);
@@ -17,6 +19,7 @@ export default function Projects() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [users, setUsers] = useState([]);
+  const [expandedProject, setExpandedProject] = useState(null);
 
   const [showModal, setShowModal] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
@@ -32,6 +35,20 @@ export default function Projects() {
     fetchProjects();
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleTaskStatusChanged = () => {
+      fetchProjects();
+    };
+
+    socket.on("task_status_changed", handleTaskStatusChanged);
+
+    return () => {
+      socket.off("task_status_changed", handleTaskStatusChanged);
+    };
+  }, [socket]);
 
   async function fetchUsers() {
     try {
@@ -190,47 +207,109 @@ export default function Projects() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredProjects.map((project) => (
-                <tr key={project.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-medium text-indigo-700">
-                        {project.name.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">{project.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{project.description || "No description"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
-                    {project.manager ? (
-                      <div className="flex flex-col">
-                        <span className="font-medium text-gray-900">{project.manager.name}</span>
-                        <span className="text-xs text-gray-400">{project.manager.email}</span>
-                      </div>
-                    ) : (
-                      <span className="text-gray-400 italic">Unassigned</span>
+              {filteredProjects.map((project) => {
+                const isExpanded = expandedProject === project.id;
+                const colSpan = canManage ? 4 : 3;
+                return (
+                  <>
+                    <tr
+                      key={project.id}
+                      onClick={() => setExpandedProject(isExpanded ? null : project.id)}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer select-none"
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <svg
+                            className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                          <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-medium text-indigo-700">
+                            {project.name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="text-sm font-medium text-gray-900">{project.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{project.description || "No description"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {project.manager ? (
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-900">{project.manager.name}</span>
+                            <span className="text-xs text-gray-400">{project.manager.email}</span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 italic">Unassigned</span>
+                        )}
+                      </td>
+                      {canManage && (
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openEditModal(project); }}
+                              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDelete(project.id); }}
+                              className="text-xs text-red-500 hover:text-red-700 font-medium"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+
+                    {isExpanded && (
+                      <tr key={`${project.id}-tasks`}>
+                        <td colSpan={colSpan} className="bg-indigo-50 px-4 py-3">
+                          <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide mb-2">
+                            Tasks in this project ({project.tasks?.length || 0})
+                          </p>
+                          {!project.tasks || project.tasks.length === 0 ? (
+                            <p className="text-xs text-gray-400 italic">No tasks assigned to this project yet.</p>
+                          ) : (
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="text-xs text-gray-500 border-b border-indigo-100">
+                                  <th className="text-left py-1 font-medium">Title</th>
+                                  <th className="text-left py-1 font-medium">Assignee</th>
+                                  <th className="text-left py-1 font-medium">Status</th>
+                                  <th className="text-left py-1 font-medium">Due Date</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-indigo-100">
+                                {project.tasks.map((t) => {
+                                  const statusColors = { TODO: 'bg-blue-100 text-blue-700', IN_PROGRESS: 'bg-yellow-100 text-yellow-700', COMPLETED: 'bg-green-100 text-green-700' };
+                                  const statusLabels = { TODO: 'To Do', IN_PROGRESS: 'In Progress', COMPLETED: 'Completed' };
+                                  return (
+                                    <tr key={t.id}>
+                                      <td className="py-1.5 pr-4 font-medium text-gray-800">{t.title}</td>
+                                      <td className="py-1.5 pr-4 text-xs text-gray-500">
+                                        {t.assignments?.[0]?.user?.name || 'Unassigned'}
+                                      </td>
+                                      <td className="py-1.5 pr-4">
+                                        <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[t.status] || 'bg-gray-100 text-gray-600'}`}>
+                                          {statusLabels[t.status] || t.status}
+                                        </span>
+                                      </td>
+                                      <td className="py-1.5 text-gray-500 text-xs">
+                                        {t.dueDate ? new Date(t.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          )}
+                        </td>
+                      </tr>
                     )}
-                  </td>
-                  {canManage && (
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => openEditModal(project)}
-                          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(project.id)}
-                          className="text-xs text-red-500 hover:text-red-700 font-medium"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))}
+                  </>
+                );
+              })}
             </tbody>
           </table>
         )}

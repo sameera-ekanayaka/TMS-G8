@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Calendar, MessageSquare, Paperclip, Send, Download, FileText, Image as ImageIcon } from 'lucide-react';
-import { getComments, createComment, getAttachments, uploadAttachment } from '../../services/api';
+import { X, User, Calendar, MessageSquare, Paperclip, Send, Download, FileText, Image as ImageIcon, Edit2, Trash2, Check } from 'lucide-react';
+import { getComments, createComment, updateComment, deleteComment, getAttachments, uploadAttachment, deleteAttachment } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const TaskDetails = ({ task, onClose }) => {
@@ -9,8 +9,10 @@ const TaskDetails = ({ task, onClose }) => {
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editCommentContent, setEditCommentContent] = useState('');
 
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const apiBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
   useEffect(() => {
@@ -50,6 +52,40 @@ const TaskDetails = ({ task, onClose }) => {
       console.error('Failed to add comment:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!window.confirm('Are you sure you want to delete this comment?')) return;
+    try {
+      await deleteComment(token, commentId);
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+    } catch (error) {
+      console.error('Failed to delete comment:', error);
+    }
+  };
+
+  const handleEditCommentSubmit = async (commentId) => {
+    if (!editCommentContent.trim()) return;
+    try {
+      const response = await updateComment(token, commentId, editCommentContent);
+      setComments((prev) =>
+        prev.map((c) => (c.id === commentId ? response.data.comment : c))
+      );
+      setEditingCommentId(null);
+      setEditCommentContent('');
+    } catch (error) {
+      console.error('Failed to update comment:', error);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId) => {
+    if (!window.confirm('Are you sure you want to delete this attachment?')) return;
+    try {
+      await deleteAttachment(token, attachmentId);
+      setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+    } catch (error) {
+      console.error('Failed to delete attachment:', error);
     }
   };
 
@@ -223,15 +259,26 @@ const TaskDetails = ({ task, onClose }) => {
                           <p className="text-xs text-gray-400">{formatFileSize(attachment.size)}</p>
                         </div>
                       </div>
-                      <a
-                        href={`${apiBaseUrl}/uploads/${attachment.storedAs}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        download={attachment.filename}
-                        className="p-1.5 bg-white hover:bg-gray-250 text-gray-500 hover:text-gray-800 border border-gray-200 rounded-lg shadow-sm transition"
-                      >
-                        <Download size={14} />
-                      </a>
+                      <div className="flex items-center gap-1">
+                        <a
+                          href={`${apiBaseUrl}/uploads/${attachment.storedAs}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download={attachment.filename}
+                          className="p-1.5 bg-white hover:bg-gray-250 text-gray-500 hover:text-gray-800 border border-gray-200 rounded-lg shadow-sm transition"
+                        >
+                          <Download size={14} />
+                        </a>
+                        {(attachment.userId === user.id || user.role === 'ADMIN') && (
+                          <button
+                            onClick={() => handleDeleteAttachment(attachment.id)}
+                            className="p-1.5 bg-white hover:bg-red-50 text-gray-500 hover:text-red-500 border border-gray-200 rounded-lg shadow-sm transition"
+                            title="Delete attachment"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))
                 ) : (
@@ -263,22 +310,70 @@ const TaskDetails = ({ task, onClose }) => {
           {/* Comments List */}
           <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
             {comments.length > 0 ? (
-              comments.map((comment) => (
-                <div key={comment.id} className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold text-gray-800">{comment.user?.name || 'Unknown User'}</span>
-                    <span className="text-[10px] text-gray-400">
-                      {new Date(comment.createdAt).toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
+              comments.map((comment) => {
+                const canManageComment = comment.user?.id === user.id || user.role === 'ADMIN';
+                return (
+                  <div key={comment.id} className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm relative group">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-bold text-gray-800">{comment.user?.name || 'Unknown User'}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-400">
+                          {new Date(comment.createdAt).toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                        {canManageComment && (
+                          <div className="hidden group-hover:flex items-center gap-1 absolute right-2 top-2 bg-white rounded shadow-sm border border-gray-100 px-1 py-0.5">
+                            <button
+                              onClick={() => { setEditingCommentId(comment.id); setEditCommentContent(comment.content); }}
+                              className="p-1 text-gray-400 hover:text-blue-500 transition"
+                              title="Edit comment"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteComment(comment.id)}
+                              className="p-1 text-gray-400 hover:text-red-500 transition"
+                              title="Delete comment"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {editingCommentId === comment.id ? (
+                      <div className="mt-2">
+                        <textarea
+                          className="w-full text-sm border border-gray-200 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                          rows="2"
+                          value={editCommentContent}
+                          onChange={(e) => setEditCommentContent(e.target.value)}
+                        />
+                        <div className="flex justify-end gap-1 mt-1">
+                          <button
+                            onClick={() => setEditingCommentId(null)}
+                            className="p-1 text-gray-500 hover:text-gray-700 bg-gray-100 rounded text-xs px-2"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => handleEditCommentSubmit(comment.id)}
+                            className="p-1 flex items-center gap-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs px-2"
+                          >
+                            <Check size={12} /> Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-650 whitespace-pre-wrap">{comment.content}</p>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-650 whitespace-pre-wrap">{comment.content}</p>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center p-4">
                 <MessageSquare size={36} className="text-gray-300 mb-2" />
