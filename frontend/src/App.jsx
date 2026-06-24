@@ -8,7 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Tasks from "./pages/Tasks";
 import Users from "./pages/Users";
 import ResetPassword from "./pages/ResetPassword";
-import KanbanBoard from "./components/kanban/kanbanBoard";
+import Projects from "./pages/Projects";
 import Sidebar from "./components/common/Sidebar";
 import Navbar from "./components/common/Navbar";
 
@@ -86,10 +86,10 @@ function AppRoutes() {
         } 
       />
       <Route 
-        path="/kanban" 
+        path="/projects" 
         element={
           <ProtectedRoute>
-            <MainLayout><KanbanBoard /></MainLayout>
+            <MainLayout><Projects /></MainLayout>
           </ProtectedRoute>
         } 
       />
