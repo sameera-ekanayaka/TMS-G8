@@ -48,7 +48,7 @@ const emitTaskEvent = (io, event, payload, assigneeIds = []) => {
 // Returns: { message, task }
 const createTask = async (req, res) => {
   try {
-    const { title, description, priority, dueDate, assignedUserId } = req.body;
+    const { title, description, priority, dueDate, assignedUserId, projectId } = req.body;
     const userId = req.user.id; // From protect middleware
 
     // Validate required fields
@@ -114,6 +114,7 @@ const createTask = async (req, res) => {
         status: "TODO",
         dueDate: dueDate ? new Date(dueDate) : null,
         createdById: userId,
+        projectId: projectId || null,
         assignments: assignedUserId ? {
           create: {
             userId: parseInt(assignedUserId)
@@ -121,6 +122,7 @@ const createTask = async (req, res) => {
         } : undefined
       },
       include: {
+        project: { select: { id: true, name: true } },
         createdBy: {
           select: { id: true, name: true, email: true, role: true },
         },
@@ -185,6 +187,7 @@ const getTasks = async (req, res) => {
 
     // Common include block
     const includeBlock = {
+      project: { select: { id: true, name: true } },
       createdBy: {
         select: { id: true, name: true, email: true, role: true },
       },
@@ -253,6 +256,7 @@ const getTaskById = async (req, res) => {
     const task = await prisma.task.findUnique({
       where: { id: taskId },
       include: {
+        project: { select: { id: true, name: true } },
         createdBy: {
           select: { id: true, name: true, email: true, role: true },
         },
@@ -308,7 +312,7 @@ const getTaskById = async (req, res) => {
 const updateTask = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, priority, dueDate, assignedUserId } = req.body;
+    const { title, description, priority, dueDate, assignedUserId, projectId } = req.body;
 
     // Validate task ID
     const taskId = parseInt(id);
@@ -419,9 +423,11 @@ const updateTask = async (req, res) => {
         description: description ? description.trim() : undefined,
         priority: priority || undefined,
         dueDate: dueDate ? new Date(dueDate) : undefined,
+        projectId: projectId !== undefined ? (projectId === "" ? null : projectId) : undefined,
         assignments: assignmentsUpdate,
       },
       include: {
+        project: { select: { id: true, name: true } },
         createdBy: {
           select: { id: true, name: true, email: true, role: true },
         },
@@ -698,6 +704,7 @@ const updateTaskStatus = async (req, res) => {
       where: { id: taskId },
       data: { status },
       include: {
+        project: { select: { id: true, name: true } },
         createdBy: {
           select: { id: true, name: true, email: true, role: true },
         },
