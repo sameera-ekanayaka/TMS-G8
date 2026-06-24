@@ -179,73 +179,66 @@ export default function Users() {
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div>
         {loading ? (
-          <div className="text-center py-12 text-sm text-gray-500">
+          <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-sm text-gray-500">
             Loading users...
           </div>
         ) : filteredUsers.length === 0 ? (
-          <div className="text-center py-12 text-sm text-gray-500">
+          <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-sm text-gray-500">
             No users found.
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Name</th>
-                <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Email</th>
-                <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Role</th>
-                <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Status</th>
-                <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-medium text-indigo-700">
-                        {user.name.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">{user.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{user.email}</td>
-                  <td className="px-4 py-3">
-                    <RoleBadge role={user.role} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge active={user.isActive} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => openEditModal(user)}
-                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                      >
-                        Edit
-                      </button>
-                      {user.isActive ? (
-                        <button
-                          onClick={() => handleDeactivate(user.id)}
-                          className="text-xs text-red-500 hover:text-red-700 font-medium"
-                        >
-                          Deactivate
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleActivate(user.id)}
-                          className="text-xs text-green-600 hover:text-green-800 font-medium"
-                        >
-                          Activate
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {filteredUsers.map((user) => (
+              <div
+                key={user.id}
+                className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col items-center text-center relative overflow-hidden"
+              >
+                <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
+                
+                <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-indigo-100 to-purple-100 flex items-center justify-center text-xl font-bold text-indigo-700 shadow-inner mb-4 mt-2">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+
+                <h3 className="font-semibold text-gray-900 text-lg tracking-tight mb-1">
+                  {user.name}
+                </h3>
+                <p className="text-sm text-gray-500 mb-4 select-all break-all w-full px-2" title={user.email}>
+                  {user.email}
+                </p>
+
+                <div className="flex flex-wrap gap-2 justify-center mb-6">
+                  <RoleBadge role={user.role} />
+                  <StatusBadge active={user.isActive} />
+                </div>
+
+                <div className="mt-auto w-full pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
+                  <button
+                    onClick={() => openEditModal(user)}
+                    className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-semibold py-2 px-3 rounded-xl border border-gray-200 transition-colors duration-150"
+                  >
+                    Edit
+                  </button>
+                  {user.isActive ? (
+                    <button
+                      onClick={() => handleDeactivate(user.id)}
+                      className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold py-2 px-3 rounded-xl border border-red-100 transition-colors duration-150"
+                    >
+                      Deactivate
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleActivate(user.id)}
+                      className="flex-1 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold py-2 px-3 rounded-xl border border-green-100 transition-colors duration-150"
+                    >
+                      Activate
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
