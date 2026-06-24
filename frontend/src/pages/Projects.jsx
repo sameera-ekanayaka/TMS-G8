@@ -5,6 +5,7 @@ import {
   createProject,
   updateProject,
   deleteProject,
+  getUsers,
 } from "../services/api";
 
 export default function Projects() {
@@ -15,19 +16,32 @@ export default function Projects() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [users, setUsers] = useState([]);
 
   const [showModal, setShowModal] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
+    managerId: "",
   });
   const [formError, setFormError] = useState("");
   const [formLoading, setFormLoading] = useState(false);
 
   useEffect(() => {
     fetchProjects();
+    fetchUsers();
   }, []);
+
+  async function fetchUsers() {
+    try {
+      const response = await getUsers(token);
+      const data = response.data;
+      setUsers(Array.isArray(data) ? data : data.users || []);
+    } catch (err) {
+      console.error("Failed to load users", err);
+    }
+  }
 
   async function fetchProjects() {
     setLoading(true);
@@ -46,16 +60,22 @@ export default function Projects() {
     project.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  const projectManagers = users.filter((u) => u.role === "PROJECT_MANAGER");
+
   function openCreateModal() {
     setEditingProject(null);
-    setFormData({ name: "", description: "" });
+    setFormData({ name: "", description: "", managerId: "" });
     setFormError("");
     setShowModal(true);
   }
 
   function openEditModal(project) {
     setEditingProject(project);
-    setFormData({ name: project.name, description: project.description || "" });
+    setFormData({
+      name: project.name,
+      description: project.description || "",
+      managerId: project.managerId || "",
+    });
     setFormError("");
     setShowModal(true);
   }
@@ -63,7 +83,7 @@ export default function Projects() {
   function closeModal() {
     setShowModal(false);
     setEditingProject(null);
-    setFormData({ name: "", description: "" });
+    setFormData({ name: "", description: "", managerId: "" });
     setFormError("");
   }
 
@@ -83,10 +103,16 @@ export default function Projects() {
     setFormError("");
 
     try {
+      const payload = {
+        name: formData.name,
+        description: formData.description,
+        managerId: formData.managerId ? parseInt(formData.managerId, 10) : null,
+      };
+
       if (editingProject) {
-        await updateProject(token, editingProject.id, formData);
+        await updateProject(token, editingProject.id, payload);
       } else {
-        await createProject(token, formData);
+        await createProject(token, payload);
       }
       await fetchProjects();
       closeModal();
@@ -159,6 +185,7 @@ export default function Projects() {
               <tr>
                 <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Name</th>
                 <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Description</th>
+                <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Manager</th>
                 {canManage && <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Actions</th>}
               </tr>
             </thead>
@@ -174,6 +201,16 @@ export default function Projects() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">{project.description || "No description"}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">
+                    {project.manager ? (
+                      <div className="flex flex-col">
+                        <span className="font-medium text-gray-900">{project.manager.name}</span>
+                        <span className="text-xs text-gray-400">{project.manager.email}</span>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 italic">Unassigned</span>
+                    )}
+                  </td>
                   {canManage && (
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -224,7 +261,7 @@ export default function Projects() {
               />
             </div>
 
-            <div className="mb-5">
+            <div className="mb-4">
               <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
               <textarea
                 value={formData.description}
@@ -233,6 +270,22 @@ export default function Projects() {
                 rows="3"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
+            </div>
+
+            <div className="mb-5">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Project Manager</label>
+              <select
+                value={formData.managerId}
+                onChange={(e) => setFormData({ ...formData, managerId: e.target.value })}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Unassigned</option>
+                {projectManagers.map((pm) => (
+                  <option key={pm.id} value={pm.id}>
+                    {pm.name} ({pm.email})
+                  </option>
+                ))}
+              </select>
             </div>
 
             {formError && (
