@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import Sidebar from '../components/Sidebar';
-import NotificationBell from '../components/NotificationBell';
+import Sidebar from '../components/common/Sidebar';
+import NotificationPanel from '../components/notification/NotificationPanel';
 import { getTasks, getUsers } from '../services/api';
 
 /* ── Stat Card — flat white canvas, hairline border ── */
@@ -132,7 +132,7 @@ const Dashboard = () => {
               {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
-          <NotificationBell />
+          <NotificationPanel />
         </div>
 
         {/* ── Stats Grid — white canvas cards ── */}
