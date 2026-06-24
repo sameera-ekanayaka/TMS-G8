@@ -41,6 +41,13 @@ const createProject = async (req, res) => {
       }
     }
 
+    // Smart Manager Default:
+    // If managerId is not provided (parsedManagerId is null), but the request user
+    // is a PROJECT_MANAGER, default it to their own user ID.
+    if (parsedManagerId === null && req.user.role === "PROJECT_MANAGER") {
+      parsedManagerId = req.user.id;
+    }
+
     const newProject = await prisma.project.create({
       data: {
         name: name.trim(),
@@ -76,9 +83,34 @@ const createProject = async (req, res) => {
 // Get all projects
 const getProjects = async (req, res) => {
   try {
+    const userRole = req.user.role;
+    const userId = req.user.id;
+
+    const where = {};
+    if (userRole === "PROJECT_MANAGER") {
+      where.managerId = userId;
+    } else if (userRole === "COLLABORATOR") {
+      where.tasks = {
+        some: {
+          assignments: {
+            some: {
+              userId: userId,
+            },
+          },
+        },
+      };
+    }
+
     const projects = await prisma.project.findMany({
+      where,
       include: {
-        tasks: true,
+        tasks: {
+          include: {
+            assignments: {
+              include: { user: { select: { id: true, name: true } } }
+            }
+          }
+        },
         manager: {
           select: {
             id: true,
@@ -111,7 +143,13 @@ const getProjectById = async (req, res) => {
     const project = await prisma.project.findUnique({
       where: { id },
       include: {
-        tasks: true,
+        tasks: {
+          include: {
+            assignments: {
+              include: { user: { select: { id: true, name: true } } }
+            }
+          }
+        },
         manager: {
           select: {
             id: true,

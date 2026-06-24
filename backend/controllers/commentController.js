@@ -110,6 +110,7 @@ const createComment = async (req, res) => {
             message: notificationMessage,
             userId: assignedUserId,
             isRead: false,
+            taskId: task.id,
           },
         });
 
@@ -185,7 +186,131 @@ const getCommentsByTaskId = async (req, res) => {
   }
 };
 
+// ════════ PUT /api/tasks/comments/:commentId ══════════════════════════════
+// Edit a comment
+// Only the comment's author or ADMIN can edit
+// Body: { content }
+// Returns: { message, comment }
+const updateComment = async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    const { content } = req.body;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const id = parseInt(commentId);
+    if (isNaN(id)) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "Comment ID must be a valid number",
+      });
+    }
+
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "Comment content is required",
+      });
+    }
+
+    const comment = await prisma.comment.findUnique({
+      where: { id },
+    });
+
+    if (!comment) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: "Comment not found",
+      });
+    }
+
+    if (comment.userId !== userId && userRole !== "ADMIN") {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "You can only edit your own comments",
+      });
+    }
+
+    const updatedComment = await prisma.comment.update({
+      where: { id },
+      data: {
+        content: content.trim(),
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    return res.status(200).json({
+      message: "Comment updated successfully",
+      comment: updatedComment,
+    });
+  } catch (error) {
+    console.error("Update comment error:", error);
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to update comment",
+    });
+  }
+};
+
+// ════════ DELETE /api/tasks/comments/:commentId ═══════════════════════════
+// Delete a comment
+// Only the comment's author or ADMIN can delete
+// Returns: { message }
+const deleteComment = async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const id = parseInt(commentId);
+    if (isNaN(id)) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "Comment ID must be a valid number",
+      });
+    }
+
+    const comment = await prisma.comment.findUnique({
+      where: { id },
+    });
+
+    if (!comment) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: "Comment not found",
+      });
+    }
+
+    if (comment.userId !== userId && userRole !== "ADMIN") {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "You can only delete your own comments",
+      });
+    }
+
+    await prisma.comment.delete({
+      where: { id },
+    });
+
+    return res.status(200).json({
+      message: "Comment deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete comment error:", error);
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to delete comment",
+    });
+  }
+};
+
 module.exports = {
   createComment,
   getCommentsByTaskId,
+  updateComment,
+  deleteComment,
 };

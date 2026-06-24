@@ -11,7 +11,7 @@ const prisma = require("../lib/prisma");
 const notifyAssignment = async (io, connectedUsers, assigneeId, task) => {
   const message = `You have been assigned a new task: "${task.title}"`;
   const dbNotification = await prisma.notification.create({
-    data: { message, userId: assigneeId, isRead: false },
+    data: { message, userId: assigneeId, isRead: false, taskId: task.id },
   });
 
   if (io && connectedUsers && connectedUsers[assigneeId]) {
@@ -161,7 +161,7 @@ const createTask = async (req, res) => {
 
 // ════════ GET /api/tasks ════════════════════════════════════════════════════
 // Get all tasks (filtered by user role)
-// PROJECT_MANAGER: sees all tasks
+// PROJECT_MANAGER: sees tasks where project.managerId === req.user.id OR they are in the assignments
 // COLLABORATOR: sees only assigned tasks
 // Returns: { tasks }
 const getTasks = async (req, res) => {
@@ -180,10 +180,20 @@ const getTasks = async (req, res) => {
     }
 
     // Build sort object from query params
-    const validSortFields = ["createdAt", "dueDate", "priority", "status"];
+    const validSortFields = ["createdAt", "dueDate", "priority", "status", "project"];
     const sortField = sortBy && validSortFields.includes(sortBy) ? sortBy : "createdAt";
     const sortOrder = order === "asc" ? "asc" : "desc";
-    const orderBy = { [sortField]: sortOrder };
+
+    let orderBy;
+    if (sortField === "project") {
+      orderBy = {
+        project: {
+          name: sortOrder,
+        },
+      };
+    } else {
+      orderBy = { [sortField]: sortOrder };
+    }
 
     // Common include block
     const includeBlock = {
@@ -203,26 +213,61 @@ const getTasks = async (req, res) => {
       },
     };
 
-    let tasks;
+    let whereClause = { ...filters };
 
-    if (userRole === "PROJECT_MANAGER" || userRole === "ADMIN") {
-      tasks = await prisma.task.findMany({
-        where: filters,
-        include: includeBlock,
-        orderBy,
-      });
-    } else {
-      tasks = await prisma.task.findMany({
+    if (userRole === "PROJECT_MANAGER") {
+      whereClause.OR = [
+        {
+          project: {
+            managerId: userId,
+          },
+        },
+        {
+          assignments: {
+            some: {
+              userId: userId,
+            },
+          },
+        },
+      ];
+    } else if (userRole !== "ADMIN") {
+      // COLLABORATOR or other standard roles
+      // First, find all projectIds where the user has at least one assigned task
+      const userProjects = await prisma.project.findMany({
         where: {
-          ...filters,
+          tasks: {
+            some: {
+              assignments: {
+                some: { userId },
+              },
+            },
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+      const projectIds = userProjects.map((p) => p.id);
+
+      whereClause.OR = [
+        {
           assignments: {
             some: { userId },
           },
         },
-        include: includeBlock,
-        orderBy,
-      });
+        {
+          projectId: {
+            in: projectIds,
+          },
+        },
+      ];
     }
+
+    const tasks = await prisma.task.findMany({
+      where: whereClause,
+      include: includeBlock,
+      orderBy,
+    });
 
     return res.status(200).json({ tasks });
   } catch (error) {
@@ -312,7 +357,7 @@ const getTaskById = async (req, res) => {
 const updateTask = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, priority, dueDate, assignedUserId, projectId } = req.body;
+    const { title, description, priority, dueDate, assignedUserId, projectId, status } = req.body;
 
     // Validate task ID
     const taskId = parseInt(id);
@@ -337,6 +382,14 @@ const updateTask = async (req, res) => {
       return res.status(400).json({
         error: "Validation Error",
         message: "Priority must be LOW, MEDIUM, or HIGH",
+      });
+    }
+
+    // Validate status if provided
+    if (status && !["TODO", "IN_PROGRESS", "COMPLETED"].includes(status)) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "Status must be TODO, IN_PROGRESS, or COMPLETED",
       });
     }
 
@@ -422,6 +475,7 @@ const updateTask = async (req, res) => {
         title: title ? title.trim() : undefined,
         description: description ? description.trim() : undefined,
         priority: priority || undefined,
+        status: status || undefined,
         dueDate: dueDate ? new Date(dueDate) : undefined,
         projectId: projectId !== undefined ? (projectId === "" ? null : projectId) : undefined,
         assignments: assignmentsUpdate,
@@ -601,6 +655,7 @@ const assignTask = async (req, res) => {
         message: notificationMessage,
         userId,
         isRead: false,
+        taskId,
       },
     });
     console.log(`✅ Persistent notification saved to DB for user ${userId}`);
@@ -729,6 +784,7 @@ const updateTaskStatus = async (req, res) => {
           message: notificationMessage,
           userId: assignedUserId,
           isRead: false,
+          taskId: updatedTask.id,
         },
       });
 

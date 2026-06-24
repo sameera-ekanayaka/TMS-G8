@@ -104,4 +104,69 @@ const getAttachments = async (req, res) => {
   }
 };
 
-module.exports = { uploadAttachment, getAttachments };
+// DELETE /api/tasks/attachments/:attachmentId
+// Delete an attachment
+// Only the attachment's author or ADMIN can delete
+// Returns: { message }
+const deleteAttachment = async (req, res) => {
+  try {
+    const { attachmentId } = req.params;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const id = parseInt(attachmentId);
+    if (isNaN(id)) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "Attachment ID must be a valid number",
+      });
+    }
+
+    const attachment = await prisma.attachment.findUnique({
+      where: { id },
+    });
+
+    if (!attachment) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: "Attachment not found",
+      });
+    }
+
+    if (attachment.userId !== userId && userRole !== "ADMIN") {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "You can only delete your own attachments",
+      });
+    }
+
+    // Delete database entry first
+    await prisma.attachment.delete({
+      where: { id },
+    });
+
+    // Delete the file from the uploads directory
+    const filePath = path.join(__dirname, "..", "uploads", attachment.storedAs);
+    fs.unlink(filePath, (err) => {
+      if (err) {
+        console.error(`Failed to delete file from disk at ${filePath}:`, err);
+      }
+    });
+
+    return res.status(200).json({
+      message: "Attachment deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete attachment error:", error);
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to delete attachment",
+    });
+  }
+};
+
+module.exports = {
+  uploadAttachment,
+  getAttachments,
+  deleteAttachment,
+};

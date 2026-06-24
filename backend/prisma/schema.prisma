@@ -61,6 +61,7 @@ model Task {
   assignments TaskAssignment[]
   comments    Comment[]
   attachments Attachment[]
+  notifications Notification[]
 }
 
 model TaskAssignment {
@@ -92,8 +93,10 @@ model Notification {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
   userId    Int
+  taskId    Int?
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
 model Attachment {
