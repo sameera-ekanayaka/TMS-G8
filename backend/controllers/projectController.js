@@ -1,15 +1,15 @@
 // backend/controllers/projectController.js
-// Basic CRUD operations for the Project entity
+// CRUD operations for the Project entity, with manager assignment support
 // Member 1 (Sameera)
 
 const prisma = require("../lib/prisma");
 
 // ════════ POST /api/projects ═════════════════════════════════════════════════
 // Create a new project
-// Body: { name, description }
+// Body: { name, description, managerId }
 const createProject = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, managerId } = req.body;
 
     if (!name || name.trim() === "") {
       return res.status(400).json({
@@ -18,10 +18,44 @@ const createProject = async (req, res) => {
       });
     }
 
+    let parsedManagerId = null;
+    if (managerId !== undefined && managerId !== null) {
+      parsedManagerId = parseInt(managerId, 10);
+      if (isNaN(parsedManagerId)) {
+        return res.status(400).json({
+          error: "Validation Error",
+          message: "Invalid manager ID format",
+        });
+      }
+
+      // Verify user exists before assigning as manager
+      const managerUser = await prisma.user.findUnique({
+        where: { id: parsedManagerId },
+      });
+
+      if (!managerUser) {
+        return res.status(404).json({
+          error: "Not Found",
+          message: "Assigned manager user not found",
+        });
+      }
+    }
+
     const newProject = await prisma.project.create({
       data: {
         name: name.trim(),
         description: description ? description.trim() : null,
+        managerId: parsedManagerId,
+      },
+      include: {
+        tasks: true,
+        manager: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     });
 
@@ -45,6 +79,13 @@ const getProjects = async (req, res) => {
     const projects = await prisma.project.findMany({
       include: {
         tasks: true,
+        manager: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -71,6 +112,13 @@ const getProjectById = async (req, res) => {
       where: { id },
       include: {
         tasks: true,
+        manager: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     });
 
@@ -93,11 +141,11 @@ const getProjectById = async (req, res) => {
 
 // ════════ PUT /api/projects/:id ══════════════════════════════════════════════
 // Update a project
-// Body: { name, description }
+// Body: { name, description, managerId }
 const updateProject = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description } = req.body;
+    const { name, description, managerId } = req.body;
 
     const existingProject = await prisma.project.findUnique({
       where: { id },
@@ -117,13 +165,51 @@ const updateProject = async (req, res) => {
       });
     }
 
+    let parsedManagerId = undefined;
+    if (managerId !== undefined) {
+      if (managerId === null) {
+        parsedManagerId = null;
+      } else {
+        parsedManagerId = parseInt(managerId, 10);
+        if (isNaN(parsedManagerId)) {
+          return res.status(400).json({
+            error: "Validation Error",
+            message: "Invalid manager ID format",
+          });
+        }
+
+        // Verify user exists before assigning as manager
+        const managerUser = await prisma.user.findUnique({
+          where: { id: parsedManagerId },
+        });
+
+        if (!managerUser) {
+          return res.status(404).json({
+            error: "Not Found",
+            message: "Assigned manager user not found",
+          });
+        }
+      }
+    }
+
     const updatedData = {};
     if (name !== undefined) updatedData.name = name.trim();
     if (description !== undefined) updatedData.description = description ? description.trim() : null;
+    if (parsedManagerId !== undefined) updatedData.managerId = parsedManagerId;
 
     const updatedProject = await prisma.project.update({
       where: { id },
       data: updatedData,
+      include: {
+        tasks: true,
+        manager: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
 
     return res.status(200).json({
