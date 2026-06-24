@@ -20,7 +20,7 @@ const Tasks = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingTask, setEditingTask] = useState(null);
   const [viewingTask, setViewingTask] = useState(null);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid', 'table', 'board'
+  const [viewMode, setViewMode] = useState('table'); // 'table', 'board'
 
   const statusOptions = ['All', 'To Do', 'In Progress', 'Completed'];
   const priorityOptions = ['All', 'Low', 'Medium', 'High'];
@@ -84,6 +84,12 @@ const Tasks = () => {
   const handleSortChange = (key, value) => {
     setFilters({ ...filters, [key]: value });
     fetchTasks({ ...filters, [key]: value });
+  };
+
+  const handleResetFilters = () => {
+    const updatedFilters = { ...filters, sortBy: 'dueDate', order: 'asc' };
+    setFilters(updatedFilters);
+    fetchTasks(updatedFilters);
   };
 
   const handleSearch = (e) => {
@@ -160,7 +166,7 @@ const Tasks = () => {
 
           {/* View Toggle */}
           <div className="flex border rounded-lg overflow-hidden">
-            {['grid', 'table', 'board'].map((mode) => (
+            {['table', 'board'].map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
@@ -230,6 +236,15 @@ const Tasks = () => {
                 ))}
               </select>
             </div>
+
+            <div className="flex items-end">
+              <button
+                onClick={handleResetFilters}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+              >
+                Reset Filters
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -250,23 +265,6 @@ const Tasks = () => {
         </div>
       ) : (
         <>
-          {viewMode === 'grid' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredTasks.map(task => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  canManage={canManage}
-                  onView={() => setViewingTask(task)}
-                  onEdit={() => {
-                    setEditingTask(task);
-                    setShowTaskForm(true);
-                  }}
-                />
-              ))}
-            </div>
-          )}
-
           {viewMode === 'table' && (
             <TaskTable
               tasks={filteredTasks}

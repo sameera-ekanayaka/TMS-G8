@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTasks } from '../../context/TaskContext';
-import { Calendar, User, Tag, Edit2, Trash2, ChevronUp, ChevronDown, Eye } from 'lucide-react';
+import { Calendar, User, Tag, Edit2, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 
 const TaskTable = ({ tasks, onEdit, onView, canManage = true }) => {
   const { changeTaskStatus, removeTask } = useTasks();
@@ -164,15 +164,6 @@ const TaskTable = ({ tasks, onEdit, onView, canManage = true }) => {
               </td>
               <td className="px-4 py-3">
                 <div className="flex items-center justify-end gap-2">
-                  {onView && (
-                    <button
-                      onClick={() => onView(task)}
-                      className="p-1 text-gray-400 hover:text-gray-700 rounded hover:bg-gray-100 transition-colors"
-                      title="View details"
-                    >
-                      <Eye size={16} />
-                    </button>
-                  )}
                   {canManage && (
                     <>
                       <button
