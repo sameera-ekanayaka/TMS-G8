@@ -1,66 +1,158 @@
-name: CI/CD Pipeline
+name: CI/CD — Build, Push & Deploy to Azure
 
 on:
-  pull_request:
-    branches: [ main ]
   push:
-    branches: [ main ]
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/tms-backend
+  IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/tms-frontend
 
 jobs:
-  # 1. Verify Backend Build & Generation
+  # ── 1. Backend CI ────────────────────────────────────────────────────────────
   backend-ci:
+    name: Backend — Install & Generate
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: backend/package-lock.json
 
-      - name: Install Backend Dependencies
-        run: |
-          cd backend
-          npm ci
+      - name: Install dependencies
+        run: cd backend && npm ci
 
-      - name: Generate Prisma Client
-        run: |
-          cd backend
-          npx prisma generate
+      - name: Generate Prisma client
+        run: cd backend && npx prisma generate
 
-  # 2. Verify Frontend Compilation
+  # ── 2. Frontend CI ───────────────────────────────────────────────────────────
   frontend-ci:
+    name: Frontend — Build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install Frontend Dependencies
-        run: |
-          cd frontend
-          npm ci
+      - name: Install dependencies
+        run: cd frontend && npm ci
 
-      - name: Build Frontend
-        run: |
-          cd frontend
-          npm run build
+      - name: Build (with placeholder URLs for CI verification)
+        run: cd frontend && npm run build
+        env:
+          VITE_API_URL: https://placeholder.azurecontainerapps.io
+          VITE_WS_URL: https://placeholder.azurecontainerapps.io
 
-  # 3. Continuous Deployment to Render (Runs only on merge/push to main)
-  deploy:
+  # ── 3. Build & Push Docker Images ───────────────────────────────────────────
+  # Only runs on push to main (not PRs)
+  build-and-push:
+    name: Build & Push Images to ghcr.io
     needs: [backend-ci, frontend-ci]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
     steps:
-      - name: Trigger Render Deploy Hook
-        run: |
-          curl -fX POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Backend Image ────────────────────────────────────────────────────────
+      - name: Build & Push Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.IMAGE_BACKEND }}:latest
+            ${{ env.IMAGE_BACKEND }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── Frontend Image ───────────────────────────────────────────────────────
+      - name: Build & Push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.IMAGE_FRONTEND }}:latest
+            ${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL }}
+            VITE_WS_URL=${{ secrets.VITE_WS_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── 4. Deploy to Azure Container Apps ───────────────────────────────────────
+  deploy:
+    name: Deploy to Azure
+    needs: [build-and-push]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (Service Principal)
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # ── Deploy Backend ───────────────────────────────────────────────────────
+      - name: Deploy Backend Container App
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          appSourcePath: ./backend
+          acrName: ''                       # using ghcr.io, not ACR
+          containerAppName: tms-backend
+          resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          imageToDeploy: ${{ env.IMAGE_BACKEND }}:${{ github.sha }}
+          registryUrl: ghcr.io
+          registryUsername: ${{ github.actor }}
+          registryPassword: ${{ secrets.GHCR_TOKEN }}
+          environmentVariables: |
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            EMAIL_ENABLED=true
+            ACS_CONNECTION_STRING=${{ secrets.ACS_CONNECTION_STRING }}
+            EMAIL_FROM=${{ secrets.EMAIL_FROM }}
+            CLIENT_URL=${{ secrets.CLIENT_URL }}
+            NODE_ENV=production
+            PORT=5000
+
+      # ── Deploy Frontend ──────────────────────────────────────────────────────
+      - name: Deploy Frontend Container App
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          appSourcePath: ./frontend
+          acrName: ''
+          containerAppName: tms-frontend
+          resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          imageToDeploy: ${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
+          registryUrl: ghcr.io
+          registryUsername: ${{ github.actor }}
+          registryPassword: ${{ secrets.GHCR_TOKEN }}

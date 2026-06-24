@@ -122,6 +122,11 @@ app.get("/", (_req, res) => {
   res.json({ message: "TMS API is running", docs: "/api-docs" });
 });
 
+// Health check endpoint — used by Docker HEALTHCHECK and Azure Container Apps liveness probe
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
 app.use((_req, res) => {
   res.status(404).json({ error: "Not Found", message: "Route does not exist" });
 });
