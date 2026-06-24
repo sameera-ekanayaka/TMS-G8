@@ -14,6 +14,7 @@ const taskRoutes = require("./routes/taskRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const attachmentRoutes = require("./routes/attachmentRoutes");
+const projectRoutes = require("./routes/projectRoutes");
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -115,6 +116,7 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/tasks", commentRoutes);
 app.use("/api/tasks", attachmentRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/projects", projectRoutes);
 
 app.get("/", (_req, res) => {
   res.json({ message: "TMS API is running", docs: "/api-docs" });
