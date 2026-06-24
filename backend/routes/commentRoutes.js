@@ -7,6 +7,8 @@ const router = express.Router();
 const {
   createComment,
   getCommentsByTaskId,
+  updateComment,
+  deleteComment,
 } = require("../controllers/commentController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -98,5 +100,7 @@ router.post("/:id/comments", protect, createComment);
  *         description: Internal server error
  */
 router.get("/:id/comments", protect, getCommentsByTaskId);
+router.put("/comments/:commentId", protect, updateComment);
+router.delete("/comments/:commentId", protect, deleteComment);
 
 module.exports = router;

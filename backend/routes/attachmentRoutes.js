@@ -4,7 +4,7 @@
 
 const express = require("express");
 const router = express.Router();
-const { uploadAttachment, getAttachments } = require("../controllers/attachmentController");
+const { uploadAttachment, getAttachments, deleteAttachment } = require("../controllers/attachmentController");
 const { protect } = require("../middleware/authMiddleware");
 const upload = require("../middleware/upload");
 
@@ -93,5 +93,6 @@ router.post(
  *         description: Internal server error
  */
 router.get("/:id/attachments", protect, getAttachments);
+router.delete("/attachments/:attachmentId", protect, deleteAttachment);
 
 module.exports = router;

@@ -76,6 +76,7 @@ const checkAndNotifyDeadlines = async (io, connectedUsers) => {
               message,
               userId: assignment.userId,
               isRead: false,
+              taskId: task.id,
             },
           });
 
@@ -109,11 +110,17 @@ const checkAndNotifyDeadlines = async (io, connectedUsers) => {
 
         // Also notify the task creator
         if (task.createdById) {
+          const assigneeNames = task.assignments.map((a) => a.user.name).join(", ");
+          const creatorMessage = task.assignments.length > 0
+            ? `Task "${task.title}" (assigned to ${assigneeNames}) is due soon (in ${hoursUntilDeadline} hours)`
+            : `Task "${task.title}" (unassigned) is due soon (in ${hoursUntilDeadline} hours)`;
+
           const creatorNotification = await prisma.notification.create({
             data: {
-              message: `Your task "${task.title}" is due soon (in ${hoursUntilDeadline} hours)`,
+              message: creatorMessage,
               userId: task.createdById,
               isRead: false,
+              taskId: task.id,
             },
           });
 
@@ -121,7 +128,7 @@ const checkAndNotifyDeadlines = async (io, connectedUsers) => {
             io.to(connectedUsers[task.createdById]).emit(
               "deadline_approaching",
               {
-                message: `Your task "${task.title}" is due soon (in ${hoursUntilDeadline} hours)`,
+                message: creatorMessage,
                 task: {
                   id: task.id,
                   title: task.title,
