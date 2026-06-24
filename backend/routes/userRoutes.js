@@ -14,9 +14,8 @@ const {
 } = require("../controllers/userController");
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
-// All user routes require a valid JWT + ADMIN role
+// All user routes require a valid JWT
 router.use(protect);
-router.use(authorizeRoles("ADMIN"));
 
 /**
  * @swagger
@@ -39,7 +38,7 @@ router.use(authorizeRoles("ADMIN"));
  *       403:
  *         description: Not authorized (Admin only)
  */
-router.get("/", getAllUsers);
+router.get("/", authorizeRoles("ADMIN", "PROJECT_MANAGER", "COLLABORATOR"), getAllUsers);
 
 /**
  * @swagger
@@ -59,7 +58,7 @@ router.get("/", getAllUsers);
  *       404:
  *         description: User not found
  */
-router.get("/:id", getUserById);
+router.get("/:id", authorizeRoles("ADMIN", "PROJECT_MANAGER", "COLLABORATOR"), getUserById);
 
 /**
  * @swagger
@@ -90,7 +89,7 @@ router.get("/:id", getUserById);
  *       400:
  *         description: Validation error or email already exists
  */
-router.post("/", createUser);
+router.post("/", authorizeRoles("ADMIN"), createUser);
 
 /**
  * @swagger
@@ -123,7 +122,7 @@ router.post("/", createUser);
  *       404:
  *         description: User not found
  */
-router.put("/:id", updateUser);
+router.put("/:id", authorizeRoles("ADMIN"), updateUser);
 
 /**
  * @swagger
@@ -145,7 +144,7 @@ router.put("/:id", updateUser);
  *       404:
  *         description: User not found
  */
-router.patch("/:id/deactivate", deactivateUser);
+router.patch("/:id/deactivate", authorizeRoles("ADMIN"), deactivateUser);
 
 /**
  * @swagger
@@ -167,6 +166,6 @@ router.patch("/:id/deactivate", deactivateUser);
  *       404:
  *         description: User not found
  */
-router.patch("/:id/activate", activateUser);
+router.patch("/:id/activate", authorizeRoles("ADMIN"), activateUser);
 
 module.exports = router;

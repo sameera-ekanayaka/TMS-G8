@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { resetPassword } from "../services/api";
+import { Check } from "lucide-react";
 
 export default function ResetPassword() {
   const [tempPassword, setTempPassword] = useState("");
@@ -32,6 +33,10 @@ export default function ResetPassword() {
     }
     if (!/[0-9]/.test(newPassword)) {
       setError("Password must contain at least one number.");
+      return false;
+    }
+    if (!/[!@#$%^&*]/.test(newPassword)) {
+      setError("Password must contain at least one symbol (!@#$%^&*).");
       return false;
     }
     if (newPassword !== confirmPassword) {
@@ -200,10 +205,28 @@ export default function ResetPassword() {
             </div>
           </div>
 
-          {/* Password rules hint */}
-          <p className="text-xs text-gray-400 mb-5">
-            Min 8 characters, one uppercase letter, one number.
-          </p>
+          {/* Password rules checklist */}
+          <div className="mb-5">
+            <p className="text-xs font-medium text-gray-700 mb-2">Passwords Must:</p>
+            <ul className="text-xs space-y-1.5">
+              <li className={`flex items-center gap-1.5 ${newPassword.length >= 8 ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
+                {newPassword.length >= 8 ? <Check size={14} className="text-green-500" /> : <span className="w-3.5" />}
+                Be a minimum of 8 characters
+              </li>
+              <li className={`flex items-center gap-1.5 ${/[A-Z]/.test(newPassword) ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
+                {/[A-Z]/.test(newPassword) ? <Check size={14} className="text-green-500" /> : <span className="w-3.5" />}
+                Include at least one uppercase letter (A-Z)
+              </li>
+              <li className={`flex items-center gap-1.5 ${/[0-9]/.test(newPassword) ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
+                {/[0-9]/.test(newPassword) ? <Check size={14} className="text-green-500" /> : <span className="w-3.5" />}
+                Include at least one number (0-9)
+              </li>
+              <li className={`flex items-center gap-1.5 ${/[!@#$%^&*]/.test(newPassword) ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
+                {/[!@#$%^&*]/.test(newPassword) ? <Check size={14} className="text-green-500" /> : <span className="w-3.5" />}
+                Include at least one symbol (!@#$%^&*)
+              </li>
+            </ul>
+          </div>
 
           {/* Error message */}
           {error && (

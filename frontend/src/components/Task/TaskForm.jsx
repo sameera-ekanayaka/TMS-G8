@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useTasks } from '../../context/TaskContext';
 import { getUsers, getProjects } from '../../services/api';
+import toast from 'react-hot-toast';
 
 import { useAuth } from '../../context/AuthContext';
+
+const roleLabels = { ADMIN: 'Admin', PROJECT_MANAGER: 'Project Manager', COLLABORATOR: 'Collaborator' };
 
 const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
   const { addTask, editTask } = useTasks();
@@ -13,7 +16,7 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    assignedUserId: '',
+    assignedUserIds: [],
     dueDate: '',
     priority: 'Medium',
     status: initialStatus || 'To Do',
@@ -40,7 +43,7 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
       setFormData({
         title: task.title || '',
         description: task.description || '',
-        assignedUserId: task.assignedUserId || '',
+        assignedUserIds: task.assignedUserIds || [],
         dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
         priority: task.priority || 'Medium',
         status: task.status || 'To Do',
@@ -52,6 +55,17 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleAssigneeToggle = (userId) => {
+    setFormData(prev => {
+      const currentIds = prev.assignedUserIds || [];
+      if (currentIds.includes(userId)) {
+        return { ...prev, assignedUserIds: currentIds.filter(id => id !== userId) };
+      } else {
+        return { ...prev, assignedUserIds: [...currentIds, userId] };
+      }
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -66,14 +80,16 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
 
       if (task) {
         await editTask(task.id, data);
+        toast.success("Task updated successfully!");
       } else {
         await addTask(data);
+        toast.success("Task created successfully!");
       }
       onSuccess?.();
       onClose();
     } catch (error) {
       console.error('Failed to save task:', error);
-      alert(error.response?.data?.message || 'Failed to save task');
+      toast.error(error.response?.data?.message || 'Failed to save task');
     } finally {
       setLoading(false);
     }
@@ -128,19 +144,21 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Assign to
               </label>
-              <select
-                name="assignedUserId"
-                value={formData.assignedUserId}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Unassigned</option>
-                {users.map(user => (
-                  <option key={user.id} value={user.id}>
-                    {user.name} ({user.email})
-                  </option>
+              <div className="w-full px-3 py-2 border rounded-lg max-h-32 overflow-y-auto space-y-2 bg-gray-50">
+                {users.filter(u => u.role !== 'ADMIN').map(user => (
+                  <label key={user.id} className="flex items-center space-x-2 cursor-pointer p-1 hover:bg-gray-100 rounded">
+                    <input
+                      type="checkbox"
+                      checked={(formData.assignedUserIds || []).includes(user.id)}
+                      onChange={() => handleAssigneeToggle(user.id)}
+                      className="rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                    />
+                    <span className="text-sm">
+                      {user.name} <span className="text-gray-500 text-xs">({roleLabels[user.role] || user.role})</span>
+                    </span>
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
 
             <div>

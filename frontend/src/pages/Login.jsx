@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loginUser } from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { Eye, EyeOff, Check, LayoutGrid, Bell, Users, TrendingUp } from "lucide-react";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -55,70 +57,135 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm w-full max-w-sm p-8">
-
-        <div className="flex items-center gap-2 mb-6">
-          <div className="w-7 h-7 bg-indigo-600 rounded-md flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+    <div className="min-h-screen flex font-sans">
+      
+      {/* LEFT PANEL */}
+      <div className="hidden lg:flex w-[60%] xl:w-[65%] bg-[#1a1f26] flex-col justify-center px-16 xl:px-32 py-12 text-white">
+        
+        <div className="max-w-[540px]">
+          {/* Logo */}
+          <div className="w-[52px] h-[52px] bg-white rounded-[14px] flex items-center justify-center mb-6">
+            <Check size={26} className="text-[#1a1f26]" strokeWidth={2.5} />
           </div>
-          <span className="text-base font-medium text-gray-900">TaskFlow</span>
+
+          <h1 className="text-[36px] font-medium tracking-tight mb-3 text-white">TaskHub</h1>
+          <p className="text-[15px] text-[#8b949e] leading-relaxed mb-12 max-w-[400px]">
+            Manage your tasks efficiently and collaborate with your team seamlessly.
+          </p>
+
+          {/* Features List */}
+          <div className="space-y-7">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg bg-[#2d333b] flex items-center justify-center shrink-0">
+                <LayoutGrid size={18} className="text-[#8b949e]" />
+              </div>
+              <div className="mt-0.5">
+                <h3 className="text-[14px] font-semibold text-white mb-0.5">Kanban Task Board</h3>
+                <p className="text-[13px] text-[#8b949e]">Visual workflow management</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg bg-[#2d333b] flex items-center justify-center shrink-0">
+                <Bell size={18} className="text-[#8b949e]" />
+              </div>
+              <div className="mt-0.5">
+                <h3 className="text-[14px] font-semibold text-white mb-0.5">Real-time Notifications</h3>
+                <p className="text-[13px] text-[#8b949e]">Stay updated instantly</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg bg-[#2d333b] flex items-center justify-center shrink-0">
+                <Users size={18} className="text-[#8b949e]" />
+              </div>
+              <div className="mt-0.5">
+                <h3 className="text-[14px] font-semibold text-white mb-0.5">Team Collaboration</h3>
+                <p className="text-[13px] text-[#8b949e]">Work together seamlessly</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg bg-[#2d333b] flex items-center justify-center shrink-0">
+                <TrendingUp size={18} className="text-[#8b949e]" />
+              </div>
+              <div className="mt-0.5">
+                <h3 className="text-[14px] font-semibold text-white mb-0.5">Progress Tracking</h3>
+                <p className="text-[13px] text-[#8b949e]">Monitor team performance</p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <h1 className="text-xl font-medium text-gray-900 mb-1">Welcome back</h1>
-        <p className="text-sm text-gray-500 mb-6">Sign in to your account</p>
+      </div>
 
-        <form onSubmit={handleSubmit} noValidate>
+      {/* RIGHT PANEL */}
+      <div className="w-full lg:w-[40%] xl:w-[35%] bg-white flex items-center justify-center p-8">
+        
+        {/* Floating Card */}
+        <div className="w-full max-w-[420px] bg-white rounded-xl border border-gray-100 shadow-[0_2px_20px_rgb(0,0,0,0.04)] p-10">
+          
+          <h2 className="text-[32px] font-normal text-gray-900 mb-2 tracking-tight">Welcome back</h2>
+          <p className="text-[14px] text-gray-500 mb-10">Sign in to your TaskHub account</p>
 
-          <div className="mb-4">
-            <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-
-          <div className="mb-5">
-            <label className="block text-xs font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-
-          {error && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-xs rounded-lg px-3 py-2 mb-4">
-              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {error}
+          <form onSubmit={handleSubmit} noValidate>
+            
+            <div className="mb-6">
+              <label className="block text-[13px] font-medium text-gray-700 mb-2.5">Email address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@test.com"
+                className="w-full bg-[#edf2f7] border border-transparent rounded-[8px] px-4 py-3 text-[14px] text-gray-900 placeholder-gray-500 focus:outline-none focus:bg-white focus:border-[#c5d3e0] transition-colors"
+              />
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium rounded-lg py-2.5 transition-colors duration-150"
-          >
-            {loading ? "Signing in..." : "Sign in"}
-          </button>
+            <div className="mb-8 relative">
+              <label className="block text-[13px] font-medium text-gray-700 mb-2.5">Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-[#edf2f7] border border-transparent rounded-[8px] pl-4 pr-10 py-3 text-[14px] text-gray-900 placeholder-gray-500 tracking-widest focus:outline-none focus:bg-white focus:border-[#c5d3e0] transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
 
-        </form>
+            {error && (
+              <div className="bg-red-50 text-red-600 text-[13px] rounded-lg px-4 py-3 mb-6 font-medium">
+                {error}
+              </div>
+            )}
 
-        <p className="text-center text-xs text-gray-500 mt-4">
-          Forgot your password?{" "}
-          <a href="/reset-password" className="text-indigo-600 hover:underline">Reset it</a>
-        </p>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[#1a1f26] hover:bg-[#111418] disabled:opacity-50 text-white text-[15px] font-medium rounded-[8px] py-3 transition-colors"
+            >
+              {loading ? "Signing in..." : "Sign in"}
+            </button>
+          </form>
+
+          <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+            <p className="text-[12px] text-gray-500">
+              Don't have an account? Contact your<br />administrator.
+            </p>
+          </div>
+
+        </div>
 
       </div>
+
     </div>
   );
 }

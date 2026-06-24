@@ -3,8 +3,10 @@ import { Bell, X, CheckCircle, Clock, UserPlus, MessageSquare, AlertCircle } fro
 import { useSocket } from '../../context/SocketContext';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const NotificationPanel = () => {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -57,7 +59,7 @@ const NotificationPanel = () => {
         type: 'task_assigned',
         createdAt: data.timestamp || new Date().toISOString(),
         isRead: false,
-        taskId: data.taskId,
+        taskId: data.taskId || (data.task && data.task.id),
       };
       setNotifications(prev => [newNotification, ...prev]);
       setUnreadCount(prev => prev + 1);
@@ -71,7 +73,7 @@ const NotificationPanel = () => {
         type: 'status_change',
         createdAt: data.timestamp || new Date().toISOString(),
         isRead: false,
-        taskId: data.taskId,
+        taskId: data.taskId || (data.task && data.task.id),
       };
       setNotifications(prev => [newNotification, ...prev]);
       setUnreadCount(prev => prev + 1);
@@ -101,7 +103,7 @@ const NotificationPanel = () => {
         type: 'deadline',
         createdAt: data.timestamp || new Date().toISOString(),
         isRead: false,
-        taskId: data.taskId,
+        taskId: data.taskId || (data.task && data.task.id),
       };
       setNotifications(prev => [newNotification, ...prev]);
       setUnreadCount(prev => prev + 1);
@@ -182,6 +184,14 @@ const NotificationPanel = () => {
     }
   };
 
+  const handleNotificationClick = (notif) => {
+    markAsRead(notif.id);
+    if (notif.taskId) {
+      setIsOpen(false);
+      navigate(`/tasks?taskId=${notif.taskId}`);
+    }
+  };
+
   const markAllRead = async () => {
     try {
       await markAllNotificationsRead(token);
@@ -255,7 +265,7 @@ const NotificationPanel = () => {
                   className={`p-3 hover:bg-gray-55 transition-colors cursor-pointer ${
                     !notif.isRead ? 'bg-blue-50' : ''
                   } border-l-4 ${getTypeColor(notif.type)}`}
-                  onClick={() => markAsRead(notif.id)}
+                  onClick={() => handleNotificationClick(notif)}
                 >
                   <div className="flex items-start gap-3">
                     <div className="mt-1">{getIcon(notif.type)}</div>

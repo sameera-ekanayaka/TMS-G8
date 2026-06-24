@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useSocket } from "../context/SocketContext";
 import {
   getProjects,
   createProject,
@@ -10,6 +12,8 @@ import {
 
 export default function Projects() {
   const { token, user } = useAuth();
+  const { socket } = useSocket();
+  const navigate = useNavigate();
   const canManage = user?.role === "ADMIN" || user?.role === "PROJECT_MANAGER";
 
   const [projects, setProjects] = useState([]);
@@ -32,6 +36,20 @@ export default function Projects() {
     fetchProjects();
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleTaskStatusChanged = () => {
+      fetchProjects();
+    };
+
+    socket.on("task_status_changed", handleTaskStatusChanged);
+
+    return () => {
+      socket.off("task_status_changed", handleTaskStatusChanged);
+    };
+  }, [socket]);
 
   async function fetchUsers() {
     try {
@@ -135,16 +153,16 @@ export default function Projects() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="min-h-screen bg-surface-soft p-6 font-sans">
+      <div className="flex items-center justify-between mb-8 pb-4 border-b border-borderstrong/30">
         <div>
-          <h1 className="text-xl font-medium text-gray-900">Projects</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage projects and their details</p>
+          <h1 className="text-[28px] font-normal text-ink tracking-tight">Projects</h1>
+          <p className="text-[14px] text-muted mt-1 font-medium">Manage your team's editorial workflows</p>
         </div>
         {canManage && (
           <button
             onClick={openCreateModal}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors duration-150"
+            className="flex items-center gap-2 bg-primary hover:bg-primary-active text-white text-[14px] font-medium px-5 py-2.5 rounded-pill transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -154,85 +172,111 @@ export default function Projects() {
         )}
       </div>
 
-      <div className="flex gap-3 mb-6">
+      <div className="flex gap-3 mb-8">
         <input
           type="text"
           placeholder="Search projects..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          className="flex-1 border border-borderstrong rounded-md px-4 py-3 text-[14px] text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-link focus:border-link transition-colors"
         />
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3 mb-4">
+        <div className="bg-surface-soft border border-signature-coral text-signature-coral text-[14px] rounded-md px-4 py-3 mb-6 font-medium">
           {error}
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
-          <div className="text-center py-12 text-sm text-gray-500">
+          <div className="col-span-full text-center py-12 text-[14px] text-muted">
             Loading projects...
           </div>
         ) : filteredProjects.length === 0 ? (
-          <div className="text-center py-12 text-sm text-gray-500">
+          <div className="col-span-full text-center py-12 text-[14px] text-muted">
             No projects found.
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Name</th>
-                <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Description</th>
-                <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Manager</th>
-                {canManage && <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Actions</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredProjects.map((project) => (
-                <tr key={project.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-medium text-indigo-700">
-                        {project.name.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">{project.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{project.description || "No description"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
-                    {project.manager ? (
-                      <div className="flex flex-col">
-                        <span className="font-medium text-gray-900">{project.manager.name}</span>
-                        <span className="text-xs text-gray-400">{project.manager.email}</span>
-                      </div>
-                    ) : (
-                      <span className="text-gray-400 italic">Unassigned</span>
-                    )}
-                  </td>
+          filteredProjects.map((project, idx) => {
+            const surfaces = [
+              'bg-signature-cream text-ink',
+              'bg-signature-mint text-ink',
+              'bg-signature-peach text-ink',
+              'bg-signature-yellow text-ink',
+              'bg-surface-strong text-ink'
+            ];
+            
+            const gIndex = idx % surfaces.length;
+            
+            return (
+              <div 
+                key={project.id}
+                onClick={() => navigate(`/tasks?projectId=${project.id}`)}
+                className={`relative ${surfaces[gIndex]} rounded-lg p-6 hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer group`}
+              >
+                <div className="flex justify-between items-start mb-6">
+                  <div className={`bg-primary text-white text-[12px] font-medium px-3 py-1 rounded-pill`}>
+                    Project
+                  </div>
                   {canManage && (
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => openEditModal(project)}
-                          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(project.id)}
-                          className="text-xs text-red-500 hover:text-red-700 font-medium"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEditModal(project); }}
+                        className="p-1.5 bg-canvas border border-borderstrong text-ink hover:bg-surface-strong rounded-md transition-all"
+                        title="Edit Project"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDelete(project.id); }}
+                        className="p-1.5 bg-canvas border border-borderstrong text-ink hover:bg-signature-coral hover:text-white hover:border-signature-coral rounded-md transition-all"
+                        title="Delete Project"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    </div>
                   )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                </div>
+
+                <div className="mb-8">
+                  <h3 className="text-[24px] font-normal leading-[1.2] mb-3">
+                    {project.name}
+                  </h3>
+                  <p className="text-[14px] font-normal opacity-80 line-clamp-3 leading-relaxed">
+                    {project.description || "No description provided for this project."}
+                  </p>
+                </div>
+
+                <div className="pt-4 border-t border-primary/10 flex items-center justify-between mt-auto">
+                  <div className="flex items-center gap-3">
+                    {project.manager ? (
+                      <>
+                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-[12px] font-medium text-white">
+                          {project.manager.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[13px] font-medium">{project.manager.name}</span>
+                          <span className="text-[11px] font-medium opacity-70">Manager</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-[12px] font-medium">
+                          ?
+                        </div>
+                        <span className="text-[13px] font-medium italic opacity-70">Unassigned</span>
+                      </>
+                    )}
+                  </div>
+                  
+                  <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white group-hover:bg-primary-active transition-colors">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </div>
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
 

@@ -11,7 +11,7 @@ const prisma = require("../lib/prisma");
 const notifyAssignment = async (io, connectedUsers, assigneeId, task) => {
   const message = `You have been assigned a new task: "${task.title}"`;
   const dbNotification = await prisma.notification.create({
-    data: { message, userId: assigneeId, isRead: false },
+    data: { message, userId: assigneeId, isRead: false, taskId: task.id },
   });
 
   if (io && connectedUsers && connectedUsers[assigneeId]) {
@@ -48,7 +48,7 @@ const emitTaskEvent = (io, event, payload, assigneeIds = []) => {
 // Returns: { message, task }
 const createTask = async (req, res) => {
   try {
-    const { title, description, priority, dueDate, assignedUserId, projectId } = req.body;
+    const { title, description, priority, dueDate, assignedUserIds, projectId } = req.body;
     const userId = req.user.id; // From protect middleware
 
     // Validate required fields
@@ -81,27 +81,29 @@ const createTask = async (req, res) => {
       }
     }
 
-    // Validate assigned user if provided
-    if (assignedUserId && assignedUserId !== "") {
-      const parsedAssignedUserId = parseInt(assignedUserId);
-      if (isNaN(parsedAssignedUserId) || parsedAssignedUserId <= 0) {
-        return res.status(400).json({
-          error: "Validation Error",
-          message: "assignedUserId must be a valid positive number",
-        });
+    // Validate assigned users if provided
+    let validAssigneeIds = [];
+    if (assignedUserIds && Array.isArray(assignedUserIds)) {
+      for (const id of assignedUserIds) {
+        const parsedId = parseInt(id);
+        if (isNaN(parsedId) || parsedId <= 0) continue;
+        validAssigneeIds.push(parsedId);
       }
-      const userExists = await prisma.user.findUnique({ where: { id: parsedAssignedUserId } });
-      if (!userExists) {
-        return res.status(404).json({
-          error: "Not Found",
-          message: "Assigned user not found",
+      
+      // Filter out duplicate IDs
+      validAssigneeIds = [...new Set(validAssigneeIds)];
+      
+      if (validAssigneeIds.length > 0) {
+        const existingUsers = await prisma.user.findMany({
+          where: { id: { in: validAssigneeIds }, isActive: true }
         });
-      }
-      if (!userExists.isActive) {
-        return res.status(400).json({
-          error: "Validation Error",
-          message: "Cannot assign task to a deactivated user",
-        });
+        
+        if (existingUsers.length !== validAssigneeIds.length) {
+          return res.status(400).json({
+            error: "Validation Error",
+            message: "One or more assigned users are invalid or deactivated",
+          });
+        }
       }
     }
 
@@ -115,10 +117,8 @@ const createTask = async (req, res) => {
         dueDate: dueDate ? new Date(dueDate) : null,
         createdById: userId,
         projectId: projectId || null,
-        assignments: assignedUserId ? {
-          create: {
-            userId: parseInt(assignedUserId)
-          }
+        assignments: validAssigneeIds.length > 0 ? {
+          create: validAssigneeIds.map(id => ({ userId: id }))
         } : undefined
       },
       include: {
@@ -135,11 +135,12 @@ const createTask = async (req, res) => {
       },
     });
 
-    // notify the assignee (skip if the PM assigned it to themselves)
-    if (assignedUserId) {
-      const assigneeId = parseInt(assignedUserId);
-      if (assigneeId !== userId) {
-        await notifyAssignment(req.io, req.connectedUsers, assigneeId, newTask);
+    // notify the assignees (skip if the PM assigned it to themselves)
+    if (validAssigneeIds.length > 0) {
+      for (const assigneeId of validAssigneeIds) {
+        if (assigneeId !== userId) {
+          await notifyAssignment(req.io, req.connectedUsers, assigneeId, newTask);
+        }
       }
     }
 
@@ -161,7 +162,7 @@ const createTask = async (req, res) => {
 
 // ════════ GET /api/tasks ════════════════════════════════════════════════════
 // Get all tasks (filtered by user role)
-// PROJECT_MANAGER: sees all tasks
+// PROJECT_MANAGER: sees tasks where project.managerId === req.user.id OR they are in the assignments
 // COLLABORATOR: sees only assigned tasks
 // Returns: { tasks }
 const getTasks = async (req, res) => {
@@ -180,10 +181,20 @@ const getTasks = async (req, res) => {
     }
 
     // Build sort object from query params
-    const validSortFields = ["createdAt", "dueDate", "priority", "status"];
+    const validSortFields = ["createdAt", "dueDate", "priority", "status", "project"];
     const sortField = sortBy && validSortFields.includes(sortBy) ? sortBy : "createdAt";
     const sortOrder = order === "asc" ? "asc" : "desc";
-    const orderBy = { [sortField]: sortOrder };
+
+    let orderBy;
+    if (sortField === "project") {
+      orderBy = {
+        project: {
+          name: sortOrder,
+        },
+      };
+    } else {
+      orderBy = { [sortField]: sortOrder };
+    }
 
     // Common include block
     const includeBlock = {
@@ -203,26 +214,61 @@ const getTasks = async (req, res) => {
       },
     };
 
-    let tasks;
+    let whereClause = { ...filters };
 
-    if (userRole === "PROJECT_MANAGER" || userRole === "ADMIN") {
-      tasks = await prisma.task.findMany({
-        where: filters,
-        include: includeBlock,
-        orderBy,
-      });
-    } else {
-      tasks = await prisma.task.findMany({
+    if (userRole === "PROJECT_MANAGER") {
+      whereClause.OR = [
+        {
+          project: {
+            managerId: userId,
+          },
+        },
+        {
+          assignments: {
+            some: {
+              userId: userId,
+            },
+          },
+        },
+      ];
+    } else if (userRole !== "ADMIN") {
+      // COLLABORATOR or other standard roles
+      // First, find all projectIds where the user has at least one assigned task
+      const userProjects = await prisma.project.findMany({
         where: {
-          ...filters,
+          tasks: {
+            some: {
+              assignments: {
+                some: { userId },
+              },
+            },
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+      const projectIds = userProjects.map((p) => p.id);
+
+      whereClause.OR = [
+        {
           assignments: {
             some: { userId },
           },
         },
-        include: includeBlock,
-        orderBy,
-      });
+        {
+          projectId: {
+            in: projectIds,
+          },
+        },
+      ];
     }
+
+    const tasks = await prisma.task.findMany({
+      where: whereClause,
+      include: includeBlock,
+      orderBy,
+    });
 
     return res.status(200).json({ tasks });
   } catch (error) {
@@ -312,7 +358,7 @@ const getTaskById = async (req, res) => {
 const updateTask = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, priority, dueDate, assignedUserId, projectId } = req.body;
+    const { title, description, priority, dueDate, assignedUserIds, projectId, status } = req.body;
 
     // Validate task ID
     const taskId = parseInt(id);
@@ -340,6 +386,14 @@ const updateTask = async (req, res) => {
       });
     }
 
+    // Validate status if provided
+    if (status && !["TODO", "IN_PROGRESS", "COMPLETED"].includes(status)) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "Status must be TODO, IN_PROGRESS, or COMPLETED",
+      });
+    }
+
     // Validate due date if it's being changed to a new value
     if (dueDate) {
       const dueDateObj = new Date(dueDate);
@@ -359,35 +413,40 @@ const updateTask = async (req, res) => {
       }
     }
 
-    // Validate assigned user if provided
-    if (assignedUserId !== undefined && assignedUserId !== null && assignedUserId !== "") {
-      const parsedAssignedUserId = parseInt(assignedUserId);
-      if (isNaN(parsedAssignedUserId) || parsedAssignedUserId <= 0) {
-        return res.status(400).json({
-          error: "Validation Error",
-          message: "assignedUserId must be a valid positive number",
-        });
-      }
-      const userExists = await prisma.user.findUnique({ where: { id: parsedAssignedUserId } });
-      if (!userExists) {
-        return res.status(404).json({
-          error: "Not Found",
-          message: "Assigned user not found",
-        });
-      }
-      if (!userExists.isActive) {
-        return res.status(400).json({
-          error: "Validation Error",
-          message: "Cannot assign task to a deactivated user",
-        });
+    // Validate assigned users if provided
+    let validAssigneeIds = [];
+    if (assignedUserIds !== undefined) {
+      if (Array.isArray(assignedUserIds)) {
+        for (const id of assignedUserIds) {
+          const parsedId = parseInt(id);
+          if (isNaN(parsedId) || parsedId <= 0) continue;
+          validAssigneeIds.push(parsedId);
+        }
+        
+        // Filter out duplicate IDs
+        validAssigneeIds = [...new Set(validAssigneeIds)];
+        
+        if (validAssigneeIds.length > 0) {
+          const existingUsers = await prisma.user.findMany({
+            where: { id: { in: validAssigneeIds }, isActive: true }
+          });
+          
+          if (existingUsers.length !== validAssigneeIds.length) {
+            return res.status(400).json({
+              error: "Validation Error",
+              message: "One or more assigned users are invalid or deactivated",
+            });
+          }
+        }
       }
     }
 
-    // Handle assignment if assignedUserId is provided
+    // Handle assignment if assignedUserIds is provided
     let assignmentsUpdate = undefined;
-    let newAssigneeId = null; // set only when assignment changes to a new user
+    let newAssigneeIds = []; // set only when assignment changes to a new user
     let previousAssigneeIds = []; // so we can also update a removed assignee's board
-    if (assignedUserId !== undefined) {
+    
+    if (assignedUserIds !== undefined) {
       // who was assigned before, so we don't re-notify the same person
       const previousAssignments = await prisma.taskAssignment.findMany({
         where: { taskId },
@@ -400,18 +459,12 @@ const updateTask = async (req, res) => {
         where: { taskId },
       });
 
-      if (assignedUserId && assignedUserId !== "") {
-        const parsedAssignedUserId = parseInt(assignedUserId);
-        if (!isNaN(parsedAssignedUserId) && parsedAssignedUserId > 0) {
-          assignmentsUpdate = {
-            create: {
-              userId: parsedAssignedUserId,
-            },
-          };
-          if (!previousAssigneeIds.includes(parsedAssignedUserId)) {
-            newAssigneeId = parsedAssignedUserId;
-          }
-        }
+      if (validAssigneeIds.length > 0) {
+        assignmentsUpdate = {
+          create: validAssigneeIds.map(id => ({ userId: id }))
+        };
+        
+        newAssigneeIds = validAssigneeIds.filter(id => !previousAssigneeIds.includes(id));
       }
     }
 
@@ -422,6 +475,7 @@ const updateTask = async (req, res) => {
         title: title ? title.trim() : undefined,
         description: description ? description.trim() : undefined,
         priority: priority || undefined,
+        status: status || undefined,
         dueDate: dueDate ? new Date(dueDate) : undefined,
         projectId: projectId !== undefined ? (projectId === "" ? null : projectId) : undefined,
         assignments: assignmentsUpdate,
@@ -440,9 +494,13 @@ const updateTask = async (req, res) => {
       },
     });
 
-    // notify the new assignee (skip self)
-    if (newAssigneeId && newAssigneeId !== req.user.id) {
-      await notifyAssignment(req.io, req.connectedUsers, newAssigneeId, updatedTask);
+    // notify the new assignees (skip self)
+    if (newAssigneeIds.length > 0) {
+      for (const assigneeId of newAssigneeIds) {
+        if (assigneeId !== req.user.id) {
+          await notifyAssignment(req.io, req.connectedUsers, assigneeId, updatedTask);
+        }
+      }
     }
 
     // include previous assignees too, so a removed person's board updates
@@ -601,6 +659,7 @@ const assignTask = async (req, res) => {
         message: notificationMessage,
         userId,
         isRead: false,
+        taskId,
       },
     });
     console.log(`✅ Persistent notification saved to DB for user ${userId}`);
@@ -729,6 +788,7 @@ const updateTaskStatus = async (req, res) => {
           message: notificationMessage,
           userId: assignedUserId,
           isRead: false,
+          taskId: updatedTask.id,
         },
       });
 
