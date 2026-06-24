@@ -99,8 +99,8 @@ jobs:
             ${{ env.IMAGE_FRONTEND }}:latest
             ${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
           build-args: |
-            VITE_API_URL=${{ secrets.VITE_API_URL }}
-            VITE_WS_URL=${{ secrets.VITE_WS_URL }}
+            VITE_API_URL=https://tms-backend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io/api
+            VITE_WS_URL=https://tms-backend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -140,7 +140,7 @@ jobs:
             EMAIL_ENABLED=true
             ACS_CONNECTION_STRING=${{ secrets.ACS_CONNECTION_STRING }}
             EMAIL_FROM=${{ secrets.EMAIL_FROM }}
-            CLIENT_URL=${{ secrets.CLIENT_URL }}
+            CLIENT_URL=https://tms-frontend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io
             NODE_ENV=production
             PORT=5000
 
