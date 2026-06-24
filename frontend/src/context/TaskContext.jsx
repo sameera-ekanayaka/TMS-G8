@@ -28,15 +28,15 @@ export const TaskProvider = ({ children }) => {
     COMPLETED: 'Completed'
   };
 
-  // Helper to transform task data for UI consumption (assignedUser, assignedUserId)
+  // Helper to transform task data for UI consumption (assignedUsers, assignedUserIds)
   const transformTask = (task) => {
     if (!task) return task;
     return {
       ...task,
       priority: backendToFrontendPriority[task.priority] || task.priority,
       status: backendToFrontendStatus[task.status] || task.status,
-      assignedUser: task.assignments?.[0]?.user?.name || null,
-      assignedUserId: task.assignments?.[0]?.user?.id || '',
+      assignedUsers: task.assignments?.map(a => a.user) || [],
+      assignedUserIds: task.assignments?.map(a => a.user?.id).filter(Boolean) || [],
     };
   };
 
@@ -45,7 +45,26 @@ export const TaskProvider = ({ children }) => {
     if (!token) return;
     setLoading(true);
     try {
-      const response = await getTasks(token, filterParams);
+      // Map frontend filters to backend enums
+      const backendStatusMap = {
+        'To Do': 'TODO',
+        'In Progress': 'IN_PROGRESS',
+        'Completed': 'COMPLETED'
+      };
+      
+      const backendPriorityMap = {
+        'Low': 'LOW',
+        'Medium': 'MEDIUM',
+        'High': 'HIGH'
+      };
+
+      const mappedFilters = {
+        ...filterParams,
+        status: backendStatusMap[filterParams.status] || filterParams.status,
+        priority: backendPriorityMap[filterParams.priority] || filterParams.priority
+      };
+
+      const response = await getTasks(token, mappedFilters);
       setTasks((response.data.tasks || []).map(transformTask));
       setError(null);
     } catch (err) {

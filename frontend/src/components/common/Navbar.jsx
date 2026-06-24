@@ -13,7 +13,7 @@ const Navbar = () => {
           Welcome, {user?.name || 'User'}
         </h2>
       </div>
-      
+
       <div className="flex items-center gap-4">
         <NotificationPanel />
         <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full">

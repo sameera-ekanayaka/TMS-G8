@@ -22,17 +22,16 @@ const Sidebar = () => {
         <h1 className="text-xl font-bold text-blue-600">TMS</h1>
         <p className="text-xs text-gray-500">Task Management System</p>
       </div>
-      
+
       <nav className="p-4 space-y-2">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-blue-50 text-blue-600 font-medium'
-                  : 'text-gray-600 hover:bg-gray-50'
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? 'bg-blue-50 text-blue-600 font-medium'
+                : 'text-gray-600 hover:bg-gray-50'
               }`
             }
           >

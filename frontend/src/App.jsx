@@ -39,11 +39,11 @@ function PublicRoute({ children }) {
 
 function MainLayout({ children }) {
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
       <Sidebar />
-      <div className="flex-1">
+      <div className="flex-1 overflow-y-auto relative flex flex-col pl-24">
         <Navbar />
-        <main className="p-6">
+        <main className="p-4 flex-1 max-w-[1400px] w-full mx-auto">
           {children}
         </main>
       </div>
