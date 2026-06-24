@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useTasks } from '../../context/TaskContext';
-import { getUsers } from '../../services/api';
+import { getUsers, getProjects } from '../../services/api';
 
 import { useAuth } from '../../context/AuthContext';
 
@@ -9,6 +9,7 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
   const { addTask, editTask } = useTasks();
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -16,6 +17,7 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
     dueDate: '',
     priority: 'Medium',
     status: initialStatus || 'To Do',
+    projectId: '',
   });
 
   const { token } = useAuth();
@@ -25,6 +27,9 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
       try {
         const response = await getUsers(token);
         setUsers(response.data.users || []);
+        
+        const projResponse = await getProjects(token);
+        setProjects(projResponse.data || []);
       } catch (error) {
         console.error('Failed to fetch users:', error);
       }
@@ -39,6 +44,7 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
         dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
         priority: task.priority || 'Medium',
         status: task.status || 'To Do',
+        projectId: task.projectId || '',
       });
     }
   }, [task, token]);
@@ -132,6 +138,25 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
                 {users.map(user => (
                   <option key={user.id} value={user.id}>
                     {user.name} ({user.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Project
+              </label>
+              <select
+                name="projectId"
+                value={formData.projectId}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">No Project</option>
+                {projects.map(project => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
                   </option>
                 ))}
               </select>

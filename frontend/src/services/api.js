@@ -84,4 +84,10 @@ export const markNotificationRead = (token, id) => api.patch(`/api/notifications
 export const markAllNotificationsRead = (token) =>
   api.patch("/api/notifications/read-all", {}, authHeader(token));
 
+// ════════ PROJECT ENDPOINTS ════════════════════════════════════════════════
+export const getProjects = (token) => api.get("/api/projects", authHeader(token));
+export const createProject = (token, data) => api.post("/api/projects", data, authHeader(token));
+export const updateProject = (token, id, data) => api.put(`/api/projects/${id}`, data, authHeader(token));
+export const deleteProject = (token, id) => api.delete(`/api/projects/${id}`, authHeader(token));
+
 export default api;
