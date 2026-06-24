@@ -50,21 +50,14 @@ const Tasks = () => {
       fetchTasks();
     };
 
-    const handleTaskStatusChanged = (data) => {
-      console.log('📝 Real-time: Task status changed', data);
-      fetchTasks();
-    };
-
     socket.on('taskCreated', handleTaskCreated);
     socket.on('taskUpdated', handleTaskUpdated);
     socket.on('taskDeleted', handleTaskDeleted);
-    socket.on('task_status_changed', handleTaskStatusChanged);
 
     return () => {
       socket.off('taskCreated', handleTaskCreated);
       socket.off('taskUpdated', handleTaskUpdated);
       socket.off('taskDeleted', handleTaskDeleted);
-      socket.off('task_status_changed', handleTaskStatusChanged);
     };
   }, [socket, fetchTasks]);
 
@@ -276,14 +269,14 @@ const Tasks = () => {
 
           {viewMode === 'board' && (
             <DragDropContext
-              onDragEnd={async (result) => {
+              onDragEnd={(result) => {
                 if (!result.destination) return;
                 const sourceStatus = result.source.droppableId;
                 const destStatus = result.destination.droppableId;
                 const taskId = isNaN(parseInt(result.draggableId)) ? result.draggableId : parseInt(result.draggableId);
                 
                 if (sourceStatus !== destStatus) {
-                  await changeTaskStatus(taskId, destStatus);
+                  changeTaskStatus(taskId, destStatus);
                 }
               }}
             >

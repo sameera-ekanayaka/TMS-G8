@@ -121,6 +121,12 @@ export const TaskProvider = ({ children }) => {
   // Update task status
   const changeTaskStatus = async (taskId, status) => {
     if (!token) return;
+    
+    // Optimistically update UI immediately
+    setTasks(prev => prev.map(task => 
+      task.id === taskId ? { ...task, status: status } : task
+    ));
+
     try {
       const backendStatus = status === 'To Do' ? 'TODO' : status === 'In Progress' ? 'IN_PROGRESS' : 'COMPLETED';
       const response = await updateTaskStatus(token, taskId, backendStatus);
@@ -129,6 +135,8 @@ export const TaskProvider = ({ children }) => {
       ));
       return response.data;
     } catch (err) {
+      // Revert on error by refetching
+      fetchTasks();
       setError(err.response?.data?.message || 'Failed to update status');
       throw err;
     }
