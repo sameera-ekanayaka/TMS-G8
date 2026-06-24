@@ -67,6 +67,7 @@ const Tasks = () => {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const urlTaskId = searchParams.get('taskId');
+  const urlProjectId = searchParams.get('projectId');
 
   useEffect(() => {
     if (urlTaskId && tasks.length > 0) {
@@ -100,6 +101,7 @@ const Tasks = () => {
   };
 
   const filteredTasks = tasks.filter(task => {
+    if (urlProjectId && task.projectId !== urlProjectId) return false;
     if (!searchTerm) return true;
     return task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
            task.description?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -127,20 +129,36 @@ const Tasks = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
-          <p className="text-gray-500">Manage all your tasks in one place</p>
+          <p className="text-gray-500">
+            {urlProjectId ? 'Viewing tasks for selected project' : 'Manage all your tasks in one place'}
+          </p>
         </div>
-        {canManage && (
-          <button
-            onClick={() => {
-              setEditingTask(null);
-              setShowTaskForm(true);
-            }}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2"
-          >
-            <Plus size={20} />
-            New Task
-          </button>
-        )}
+        <div className="flex gap-2">
+          {urlProjectId && (
+            <button
+              onClick={() => {
+                const newParams = new URLSearchParams(searchParams);
+                newParams.delete('projectId');
+                setSearchParams(newParams);
+              }}
+              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+            >
+              Clear Project Filter
+            </button>
+          )}
+          {canManage && (
+            <button
+              onClick={() => {
+                setEditingTask(null);
+                setShowTaskForm(true);
+              }}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2"
+            >
+              <Plus size={20} />
+              New Task
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Search, Filters, and View Toggle */}

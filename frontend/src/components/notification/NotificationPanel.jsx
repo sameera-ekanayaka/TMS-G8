@@ -59,7 +59,7 @@ const NotificationPanel = () => {
         type: 'task_assigned',
         createdAt: data.timestamp || new Date().toISOString(),
         isRead: false,
-        taskId: data.taskId,
+        taskId: data.taskId || (data.task && data.task.id),
       };
       setNotifications(prev => [newNotification, ...prev]);
       setUnreadCount(prev => prev + 1);
@@ -73,7 +73,7 @@ const NotificationPanel = () => {
         type: 'status_change',
         createdAt: data.timestamp || new Date().toISOString(),
         isRead: false,
-        taskId: data.taskId,
+        taskId: data.taskId || (data.task && data.task.id),
       };
       setNotifications(prev => [newNotification, ...prev]);
       setUnreadCount(prev => prev + 1);
@@ -103,7 +103,7 @@ const NotificationPanel = () => {
         type: 'deadline',
         createdAt: data.timestamp || new Date().toISOString(),
         isRead: false,
-        taskId: data.taskId,
+        taskId: data.taskId || (data.task && data.task.id),
       };
       setNotifications(prev => [newNotification, ...prev]);
       setUnreadCount(prev => prev + 1);
