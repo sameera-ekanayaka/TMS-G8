@@ -34,7 +34,7 @@ export default function Projects() {
     setError("");
     try {
       const response = await getProjects(token);
-      setProjects(response.data || []);
+      setProjects(response.data?.projects || []);
     } catch (err) {
       setError("Failed to load projects. Please try again.");
     } finally {
