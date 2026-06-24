@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, User, MoreVertical, Edit2, Trash2, Check, Eye } from 'lucide-react';
+import { Calendar, User, MoreVertical, Edit2, Trash2, Check, Eye, Folder } from 'lucide-react';
 import { useTasks } from '../../context/TaskContext';
 
 const TaskCard = ({ task, onEdit, onView, canManage = true }) => {
@@ -152,6 +152,13 @@ const TaskCard = ({ task, onEdit, onView, canManage = true }) => {
           <span className="text-xs flex items-center gap-1 px-2 py-1 rounded-full bg-purple-100 text-purple-800">
             <User size={12} />
             {task.assignedUser}
+          </span>
+        )}
+        
+        {task.project && (
+          <span className="text-xs flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-100 text-indigo-800">
+            <Folder size={12} />
+            {task.project.name}
           </span>
         )}
       </div>

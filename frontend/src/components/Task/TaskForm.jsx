@@ -29,7 +29,7 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
         setUsers(response.data.users || []);
         
         const projResponse = await getProjects(token);
-        setProjects(projResponse.data || []);
+        setProjects(projResponse.data?.projects || []);
       } catch (error) {
         console.error('Failed to fetch users:', error);
       }
