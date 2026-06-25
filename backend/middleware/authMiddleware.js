@@ -57,10 +57,11 @@ const protect = async (req, res, next) => {
       });
     }
 
-        // Block deactivated users
+        // Block deactivated users. 401 (not 403) so the client treats it as an
+        // invalid session and logs the user out, rather than a per-action denial.
     if (!user.isActive) {
-      return res.status(403).json({
-        error: "Forbidden",
+      return res.status(401).json({
+        error: "Unauthorized",
         message: "Your account has been deactivated.",
       });
     }

@@ -28,6 +28,7 @@ const validateTaskAccessAndGetTask = async (req, res, taskIdParam) => {
     where: { id: taskId },
     include: {
       assignments: true,
+      project: { select: { managerId: true } },
     },
   });
 
@@ -95,15 +96,18 @@ const createComment = async (req, res) => {
     });
 
     // ════════ Save persistent notifications + emit real-time events ═════
-    // Send "comment_added" notification to all assigned users
-    const assignedUserIds = task.assignments.map((a) => a.userId);
+    // Notify all assigned users AND the project's manager (a PM should hear about
+    // comments on tasks in their project even if they aren't assigned to the task).
+    const recipientIds = new Set(task.assignments.map((a) => a.userId));
+    if (task.project?.managerId) recipientIds.add(task.project.managerId);
+    recipientIds.delete(userId); // never notify the commenter themselves
+
     const contentPreview = content.length > 50 ? content.substring(0, 50) + "..." : content;
     const notificationMessage = `New comment on "${task.title}": "${contentPreview}"`;
 
     // Use for...of loop (not forEach) to properly await async operations
-    for (const assignedUserId of assignedUserIds) {
-      // Don't send notification to the person who just commented
-      if (assignedUserId !== userId) {
+    for (const assignedUserId of recipientIds) {
+      {
         // Save notification to database (persistent)
         const dbNotification = await prisma.notification.create({
           data: {

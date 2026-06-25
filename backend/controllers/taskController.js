@@ -59,6 +59,21 @@ const createTask = async (req, res) => {
       });
     }
 
+    // A task must belong to a project — it cannot exist unassigned.
+    if (!projectId) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "A project must be assigned to the task",
+      });
+    }
+    const projectExists = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!projectExists) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: "Assigned project not found",
+      });
+    }
+
     // Validate priority if provided (must be LOW, MEDIUM, or HIGH)
     if (priority && !["LOW", "MEDIUM", "HIGH"].includes(priority)) {
       return res.status(400).json({
@@ -116,7 +131,7 @@ const createTask = async (req, res) => {
         status: "TODO",
         dueDate: dueDate ? new Date(dueDate) : null,
         createdById: userId,
-        projectId: projectId || null,
+        projectId,
         assignments: validAssigneeIds.length > 0 ? {
           create: validAssigneeIds.map(id => ({ userId: id }))
         } : undefined

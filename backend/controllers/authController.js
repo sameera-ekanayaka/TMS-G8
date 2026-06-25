@@ -146,4 +146,12 @@ if (!passwordRegex.test(newPassword)) {
   }
 };
 
-module.exports = { login, resetPassword };
+// ─── GET /api/auth/me ───────────────────────────
+// Returns the current authenticated user. `protect` re-fetches the user from the
+// DB on every request, so req.user carries the latest role / isActive — this lets
+// the frontend refresh a cached user after an admin changes their role.
+const getMe = async (req, res) => {
+  return res.status(200).json({ user: req.user });
+};
+
+module.exports = { login, resetPassword, getMe };
