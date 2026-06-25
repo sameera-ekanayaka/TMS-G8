@@ -200,24 +200,26 @@ export default function Projects() {
           </div>
         ) : (
           filteredProjects.map((project, idx) => {
+            // Light mode: pastel signature surface with dark ink. Dark mode:
+            // standard dark canvas card with hairline border — readable + cohesive.
             const surfaces = [
-              'bg-signature-cream text-ink',
-              'bg-signature-mint text-ink',
-              'bg-signature-peach text-ink',
-              'bg-signature-yellow text-ink',
-              'bg-surface-strong text-ink'
+              'bg-signature-cream dark:bg-canvas',
+              'bg-signature-mint dark:bg-canvas',
+              'bg-signature-peach dark:bg-canvas',
+              'bg-signature-yellow dark:bg-canvas',
+              'bg-[#e8eaed] dark:bg-canvas'
             ];
-            
+
             const gIndex = idx % surfaces.length;
-            
+
             return (
-              <div 
+              <div
                 key={project.id}
                 onClick={() => navigate(`/tasks?projectId=${project.id}`)}
-                className={`relative ${surfaces[gIndex]} rounded-lg p-6 hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer group`}
+                className={`relative ${surfaces[gIndex]} text-ink border border-transparent dark:border-hairline rounded-lg p-6 hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer group`}
               >
                 <div className="flex justify-between items-start mb-6">
-                  <div className={`bg-primary text-white text-[12px] font-medium px-3 py-1 rounded-pill`}>
+                  <div className={`bg-primary text-on-primary text-[12px] font-medium px-3 py-1 rounded-pill`}>
                     Project
                   </div>
                   {canManage && (
@@ -249,11 +251,11 @@ export default function Projects() {
                   </p>
                 </div>
 
-                <div className="pt-4 border-t border-primary/10 flex items-center justify-between mt-auto">
+                <div className="pt-4 border-t border-black/10 dark:border-white/10 flex items-center justify-between mt-auto">
                   <div className="flex items-center gap-3">
                     {project.manager ? (
                       <>
-                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-[12px] font-medium text-white">
+                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-[12px] font-medium text-on-primary">
                           {project.manager.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex flex-col">
@@ -270,8 +272,8 @@ export default function Projects() {
                       </>
                     )}
                   </div>
-                  
-                  <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white group-hover:bg-primary-active transition-colors">
+
+                  <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary group-hover:bg-primary-active transition-colors">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                   </div>
                 </div>

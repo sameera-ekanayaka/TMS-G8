@@ -4,6 +4,7 @@ import { Toaster } from "react-hot-toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { TaskProvider } from "./context/TaskContext";
 import { SocketProvider } from "./context/SocketContext";  // ✅ This should work now
+import { ThemeProvider } from "./context/ThemeContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Tasks from "./pages/Tasks";
@@ -110,15 +111,17 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <SocketProvider>
-        <TaskProvider>
-          <BrowserRouter>
-            <Toaster position="top-right" />
-            <AppRoutes />
-          </BrowserRouter>
-        </TaskProvider>
-      </SocketProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <SocketProvider>
+          <TaskProvider>
+            <BrowserRouter>
+              <Toaster position="top-right" />
+              <AppRoutes />
+            </BrowserRouter>
+          </TaskProvider>
+        </SocketProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

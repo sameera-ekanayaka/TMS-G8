@@ -125,7 +125,7 @@ const TaskTable = ({ tasks, onEdit, onView, canManage = true }) => {
                     {task.assignedUsers && task.assignedUsers.length > 0 ? (
                       <div className="flex -space-x-1.5">
                          {task.assignedUsers.slice(0, 3).map(u => (
-                           <div key={u.id} className="w-7 h-7 rounded-pill bg-primary flex items-center justify-center text-[10px] font-medium text-white ring-2 ring-canvas" title={u.name}>
+                           <div key={u.id} className="w-7 h-7 rounded-pill bg-primary flex items-center justify-center text-[10px] font-medium text-on-primary ring-2 ring-canvas" title={u.name}>
                              {u.name.charAt(0).toUpperCase()}
                            </div>
                          ))}

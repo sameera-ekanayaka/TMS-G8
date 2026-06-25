@@ -11,42 +11,78 @@
  * here — styling only.
  */
 
+/*
+ * Color tokens are defined as space-separated RGB *channels* (--c-*) so they
+ * can drive both inline `var(--color-*)` usage and the Tailwind palette
+ * (`rgb(var(--c-*) / <alpha-value>)`) from a single source — and flip wholesale
+ * under the .dark class. The --color-* vars below are the ready-to-use form.
+ */
 :root {
   /* ── Brand / ink ── */
-  --color-primary: #181d26;
-  --color-primary-active: #0d1218;
-  --color-ink: #181d26;
-  --color-body: #333840;
-  --color-muted: #6b7280;
-  --color-faint: #9297a0;
+  --c-primary: 24 29 38;
+  --c-primary-active: 13 18 24;
+  --c-ink: 24 29 38;
+  --c-body: 51 56 64;
+  --c-muted: 107 114 128;
+  --c-faint: 146 151 160;
 
   /* ── Surfaces ── */
-  --color-canvas: #ffffff;
-  --color-surface-soft: #f8fafc;
-  --color-surface-strong: #eef1f5;
-  --color-surface-dark: #181d26;
-  --color-surface-dark-elevated: #1d1f25;
-  --color-hairline: #e6e8ec;
-  --color-hairline-strong: #d4d7dd;
-  --color-on-primary: #ffffff;
-  --color-on-dark: #ffffff;
+  --c-canvas: 255 255 255;
+  --c-surface-soft: 248 250 252;
+  --c-surface-strong: 238 241 245;
+  --c-surface-dark: 24 29 38;
+  --c-surface-dark-elevated: 29 31 37;
+  --c-hairline: 230 232 236;
+  --c-hairline-strong: 212 215 221;
+  --c-on-primary: 255 255 255;
+  --c-on-dark: 255 255 255;
 
-  /* ── Semantic / status (pragmatic app additions) ── */
-  --color-link: #1b61c9;
-  --color-link-active: #1a3866;
-  --color-info: #254fad;
-  --color-info-soft: #eef3ff;
-  --color-success: #1d7d46;
-  --color-success-soft: #ecfdf3;
-  --color-warning: #b45309;
-  --color-warning-soft: #fffaeb;
-  --color-danger: #b42318;
-  --color-danger-soft: #fef3f2;
+  /* ── Semantic / status ── */
+  --c-link: 27 97 201;
+  --c-link-active: 26 56 102;
+  --c-info: 37 79 173;
+  --c-info-soft: 238 243 255;
+  --c-success: 29 125 70;
+  --c-success-soft: 236 253 243;
+  --c-warning: 180 83 9;
+  --c-warning-soft: 255 250 235;
+  --c-danger: 180 35 24;
+  --c-danger-soft: 254 243 242;
 
-  /* ── Signature accent surfaces (used sparingly, as voltage) ── */
-  --color-sig-coral: #aa2d00;
-  --color-sig-forest: #0a2e0e;
-  --color-sig-cream: #f5e9d4;
+  /* ── Signature accent surfaces ── */
+  --c-sig-coral: 170 45 0;
+  --c-sig-forest: 10 46 14;
+  --c-sig-cream: 245 233 212;
+
+  /* ── Ready-to-use color values (derived from channels above) ── */
+  --color-primary: rgb(var(--c-primary));
+  --color-primary-active: rgb(var(--c-primary-active));
+  --color-ink: rgb(var(--c-ink));
+  --color-body: rgb(var(--c-body));
+  --color-muted: rgb(var(--c-muted));
+  --color-faint: rgb(var(--c-faint));
+  --color-canvas: rgb(var(--c-canvas));
+  --color-surface-soft: rgb(var(--c-surface-soft));
+  --color-surface-strong: rgb(var(--c-surface-strong));
+  --color-surface-dark: rgb(var(--c-surface-dark));
+  --color-surface-dark-elevated: rgb(var(--c-surface-dark-elevated));
+  --color-hairline: rgb(var(--c-hairline));
+  --color-hairline-strong: rgb(var(--c-hairline-strong));
+  --color-on-primary: rgb(var(--c-on-primary));
+  --color-on-dark: rgb(var(--c-on-dark));
+  --color-link: rgb(var(--c-link));
+  --color-link-active: rgb(var(--c-link-active));
+  --color-info: rgb(var(--c-info));
+  --color-info-soft: rgb(var(--c-info-soft));
+  --color-success: rgb(var(--c-success));
+  --color-success-soft: rgb(var(--c-success-soft));
+  --color-warning: rgb(var(--c-warning));
+  --color-warning-soft: rgb(var(--c-warning-soft));
+  --color-danger: rgb(var(--c-danger));
+  --color-danger-soft: rgb(var(--c-danger-soft));
+  --color-sig-coral: rgb(var(--c-sig-coral));
+  --color-sig-forest: rgb(var(--c-sig-forest));
+  --color-sig-cream: rgb(var(--c-sig-cream));
 
   /* ── Typography ── */
   --font-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -86,6 +122,44 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════
+ * Dark theme — flip the channels; every --color-* and Tailwind token
+ * derived from them inverts automatically. .dark is toggled on <html>.
+ * ════════════════════════════════════════════════════════════════════ */
+.dark {
+  /* Brand / ink — primary inverts to near-white so the "confident" CTA
+     still reads on a dark canvas; on-primary flips to dark text. */
+  --c-primary: 240 242 245;
+  --c-primary-active: 214 218 224;
+  --c-ink: 237 240 243;
+  --c-body: 196 201 210;
+  --c-muted: 150 160 173;
+  --c-faint: 110 119 132;
+
+  /* Surfaces */
+  --c-canvas: 30 37 49;
+  --c-surface-soft: 19 23 31;
+  --c-surface-strong: 42 50 63;
+  --c-surface-dark: 13 17 23;          /* signature dark card stays dark */
+  --c-surface-dark-elevated: 22 27 34;
+  --c-hairline: 42 49 60;
+  --c-hairline-strong: 58 66 80;
+  --c-on-primary: 24 29 38;            /* dark text on the now-light primary */
+  --c-on-dark: 255 255 255;            /* always white on signature dark cards */
+
+  /* Semantic / status — lighter foregrounds, dark-tinted soft fills */
+  --c-link: 110 168 254;
+  --c-link-active: 147 191 255;
+  --c-info: 110 168 254;
+  --c-info-soft: 28 39 58;
+  --c-success: 63 191 105;
+  --c-success-soft: 19 43 30;
+  --c-warning: 245 176 65;
+  --c-warning-soft: 50 38 17;
+  --c-danger: 248 113 113;
+  --c-danger-soft: 58 24 24;
+}
+
+/* ════════════════════════════════════════════════════════════════════
  * Base
  * ════════════════════════════════════════════════════════════════════ */
 body {
@@ -94,7 +168,12 @@ body {
   background: var(--color-surface-soft);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
+
+/* color-scheme so native controls (scrollbars, date pickers) match the theme */
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }
 
 /* ════════════════════════════════════════════════════════════════════
  * Buttons
