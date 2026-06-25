@@ -96,44 +96,46 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white">
-          <h3 className="text-lg font-semibold">
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(24,29,38,0.45)' }}>
+      <div
+        className="w-full max-w-3xl max-h-[90vh] overflow-y-auto ed-scroll"
+        style={{ background: 'var(--color-canvas)', borderRadius: 'var(--rounded-lg)', boxShadow: 'var(--shadow-lg)' }}
+      >
+        <div
+          className="flex justify-between items-center px-5 py-4 sticky top-0 z-10"
+          style={{ background: 'var(--color-canvas)', borderBottom: '1px solid var(--color-hairline)' }}
+        >
+          <h3 style={{ fontSize: 18, fontWeight: 500, color: 'var(--color-ink)' }}>
             {task ? 'Edit Task' : 'Create New Task'}
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X size={24} />
+          <button onClick={onClose} style={{ color: 'var(--color-faint)' }}>
+            <X size={22} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <form onSubmit={handleSubmit} className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Title *
-              </label>
+              <label className="ed-label">Title *</label>
               <input
                 type="text"
                 name="title"
                 value={formData.title}
                 onChange={handleChange}
                 required
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="ed-input"
                 placeholder="Enter task title"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description
-              </label>
+              <label className="ed-label">Description</label>
               <textarea
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
                 rows="3"
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="ed-textarea"
                 placeholder="Enter task description"
               />
             </div>
@@ -141,20 +143,21 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Assign to
-              </label>
-              <div className="w-full px-3 py-2 border rounded-lg max-h-32 overflow-y-auto space-y-2 bg-gray-50">
+              <label className="ed-label">Assign to</label>
+              <div
+                className="w-full px-3 py-2 max-h-32 overflow-y-auto space-y-1 ed-scroll"
+                style={{ border: '1px solid var(--color-hairline-strong)', borderRadius: 'var(--rounded-sm)', background: 'var(--color-surface-soft)' }}
+              >
                 {users.filter(u => u.role !== 'ADMIN').map(user => (
-                  <label key={user.id} className="flex items-center space-x-2 cursor-pointer p-1 hover:bg-gray-100 rounded">
+                  <label key={user.id} className="ed-notif flex items-center gap-2 cursor-pointer p-1.5" style={{ borderRadius: 'var(--rounded-sm)' }}>
                     <input
                       type="checkbox"
                       checked={(formData.assignedUserIds || []).includes(user.id)}
                       onChange={() => handleAssigneeToggle(user.id)}
-                      className="rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                      style={{ accentColor: 'var(--color-primary)' }}
                     />
-                    <span className="text-sm">
-                      {user.name} <span className="text-gray-500 text-xs">({roleLabels[user.role] || user.role})</span>
+                    <span style={{ fontSize: 13, color: 'var(--color-body)' }}>
+                      {user.name} <span style={{ color: 'var(--color-faint)', fontSize: 12 }}>({roleLabels[user.role] || user.role})</span>
                     </span>
                   </label>
                 ))}
@@ -162,84 +165,53 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Project
-              </label>
-              <select
-                name="projectId"
-                value={formData.projectId}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
+              <label className="ed-label">Project</label>
+              <select name="projectId" value={formData.projectId} onChange={handleChange} className="ed-select">
                 <option value="">No Project</option>
                 {projects.map(project => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
+                  <option key={project.id} value={project.id}>{project.name}</option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Due Date
-              </label>
+              <label className="ed-label">Due Date</label>
               <input
                 type="date"
                 name="dueDate"
                 value={formData.dueDate}
                 onChange={handleChange}
                 min={new Date().toISOString().split('T')[0]}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="ed-input"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Priority
-              </label>
-              <select
-                name="priority"
-                value={formData.priority}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
-              </select>
-            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="ed-label">Priority</label>
+                <select name="priority" value={formData.priority} onChange={handleChange} className="ed-select">
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status
-              </label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="To Do">To Do</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Completed">Completed</option>
-              </select>
+              <div>
+                <label className="ed-label">Status</label>
+                <select name="status" value={formData.status} onChange={handleChange} className="ed-select">
+                  <option value="To Do">To Do</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-3 pt-4 border-t col-span-1 md:col-span-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
-            >
+          <div className="flex gap-3 pt-4 col-span-1 md:col-span-2" style={{ borderTop: '1px solid var(--color-hairline)' }}>
+            <button type="submit" disabled={loading} className="ed-btn ed-btn-primary" style={{ flex: 1 }}>
               {loading ? 'Saving...' : task ? 'Update Task' : 'Create Task'}
             </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
-            >
+            <button type="button" onClick={onClose} className="ed-btn ed-btn-secondary" style={{ flex: 1 }}>
               Cancel
             </button>
           </div>

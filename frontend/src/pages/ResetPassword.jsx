@@ -75,7 +75,7 @@ export default function ResetPassword() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--color-surface-soft)' }}>
         <div className="bg-white border border-gray-200 rounded-xl w-full max-w-sm p-8 text-center">
           <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -95,23 +95,21 @@ export default function ResetPassword() {
 
         {/* Logo */}
         <div className="flex items-center gap-2 mb-6">
-          <div className="w-7 h-7 bg-indigo-600 rounded-md flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+          <div className="w-8 h-8 flex items-center justify-center" style={{ background: 'var(--color-primary)', borderRadius: 'var(--rounded-md)' }}>
+            <span style={{ color: 'var(--color-on-primary)', fontWeight: 600, fontSize: 14 }}>T</span>
           </div>
-          <span className="text-base font-medium text-gray-900">TaskFlow</span>
+          <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-ink)' }}>TaskHub</span>
         </div>
 
         {/* Heading */}
-        <h1 className="text-xl font-medium text-gray-900 mb-1">Set new password</h1>
-        <p className="text-sm text-gray-500 mb-6">You must reset your password before continuing</p>
+        <h1 style={{ fontSize: 22, fontWeight: 500, color: 'var(--color-ink)', marginBottom: 4 }}>Set new password</h1>
+        <p style={{ fontSize: 14, color: 'var(--color-muted)', marginBottom: 24 }}>You must reset your password before continuing</p>
 
         <form onSubmit={handleSubmit} noValidate>
 
           {/* Temporary password */}
           <div className="mb-4">
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="ed-label">
               Temporary password
             </label>
             <div className="relative">
@@ -120,7 +118,8 @@ export default function ResetPassword() {
                 value={tempPassword}
                 onChange={(e) => setTempPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-10 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="ed-input"
+                style={{ paddingRight: 40 }}
               />
               <button
                 type="button"
@@ -143,7 +142,7 @@ export default function ResetPassword() {
 
           {/* New password */}
           <div className="mb-4">
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="ed-label">
               New password
             </label>
             <div className="relative">
@@ -152,7 +151,8 @@ export default function ResetPassword() {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-10 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="ed-input"
+                style={{ paddingRight: 40 }}
               />
               <button
                 type="button"
@@ -175,7 +175,7 @@ export default function ResetPassword() {
 
           {/* Confirm password */}
           <div className="mb-2">
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="ed-label">
               Confirm new password
             </label>
             <div className="relative">
@@ -184,7 +184,8 @@ export default function ResetPassword() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-10 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="ed-input"
+                style={{ paddingRight: 40 }}
               />
               <button
                 type="button"
@@ -230,7 +231,10 @@ export default function ResetPassword() {
 
           {/* Error message */}
           {error && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-xs rounded-lg px-3 py-2 mb-4">
+            <div
+              className="flex items-center gap-2 text-xs rounded-md px-3 py-2 mb-4"
+              style={{ background: 'var(--color-danger-soft)', border: '1px solid var(--color-danger)', color: 'var(--color-danger)' }}
+            >
               <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -239,11 +243,7 @@ export default function ResetPassword() {
           )}
 
           {/* Submit button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium rounded-lg py-2.5 transition-colors duration-150"
-          >
+          <button type="submit" disabled={loading} className="ed-btn ed-btn-primary" style={{ width: '100%', height: 44 }}>
             {loading ? "Resetting..." : "Reset password"}
           </button>
 

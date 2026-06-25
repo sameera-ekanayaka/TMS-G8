@@ -153,17 +153,14 @@ export default function Projects() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-soft p-6 font-sans">
-      <div className="flex items-center justify-between mb-8 pb-4 border-b border-borderstrong/30">
+    <div>
+      <div className="flex items-center justify-between mb-6 pb-4 flex-wrap gap-3" style={{ borderBottom: '1px solid var(--color-hairline)' }}>
         <div>
-          <h1 className="text-[28px] font-normal text-ink tracking-tight">Projects</h1>
-          <p className="text-[14px] text-muted mt-1 font-medium">Manage your team's editorial workflows</p>
+          <h1 className="ed-page-title">Projects</h1>
+          <p className="ed-page-subtitle">Manage your team's projects and workflows</p>
         </div>
         {canManage && (
-          <button
-            onClick={openCreateModal}
-            className="flex items-center gap-2 bg-primary hover:bg-primary-active text-white text-[14px] font-medium px-5 py-2.5 rounded-pill transition-colors"
-          >
+          <button onClick={openCreateModal} className="ed-btn ed-btn-primary">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
@@ -172,18 +169,22 @@ export default function Projects() {
         )}
       </div>
 
-      <div className="flex gap-3 mb-8">
+      <div className="mb-6">
         <input
           type="text"
           placeholder="Search projects..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 border border-borderstrong rounded-md px-4 py-3 text-[14px] text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-link focus:border-link transition-colors"
+          className="ed-input"
+          style={{ maxWidth: 360, height: 40 }}
         />
       </div>
 
       {error && (
-        <div className="bg-surface-soft border border-signature-coral text-signature-coral text-[14px] rounded-md px-4 py-3 mb-6 font-medium">
+        <div
+          className="text-[14px] rounded-md px-4 py-3 mb-6 font-medium"
+          style={{ background: 'var(--color-danger-soft)', border: '1px solid var(--color-danger)', color: 'var(--color-danger)' }}
+        >
           {error}
         </div>
       )}
@@ -281,13 +282,16 @@ export default function Projects() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center px-4 z-50">
-          <div className="bg-white rounded-xl border border-gray-200 w-full max-w-md p-6">
+        <div className="fixed inset-0 flex items-center justify-center px-4 z-50" style={{ background: 'rgba(24,29,38,0.45)' }}>
+          <div
+            className="w-full max-w-md p-6"
+            style={{ background: 'var(--color-canvas)', border: '1px solid var(--color-hairline)', borderRadius: 'var(--rounded-lg)', boxShadow: 'var(--shadow-lg)' }}
+          >
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-medium text-gray-900">
+              <h2 style={{ fontSize: 18, fontWeight: 500, color: 'var(--color-ink)' }}>
                 {editingProject ? "Edit Project" : "Add Project"}
               </h2>
-              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
+              <button onClick={closeModal} style={{ color: 'var(--color-faint)' }}>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -295,33 +299,33 @@ export default function Projects() {
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
+              <label className="ed-label">Name</label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Project name"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="ed-input"
               />
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
+              <label className="ed-label">Description</label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Project description"
                 rows="3"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="ed-textarea"
               />
             </div>
 
             <div className="mb-5">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Project Manager</label>
+              <label className="ed-label">Project Manager</label>
               <select
                 value={formData.managerId}
                 onChange={(e) => setFormData({ ...formData, managerId: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="ed-select"
               >
                 <option value="">Unassigned</option>
                 {projectManagers.map((pm) => (
@@ -333,23 +337,19 @@ export default function Projects() {
             </div>
 
             {formError && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-xs rounded-lg px-3 py-2 mb-4">
+              <div
+                className="text-xs rounded-md px-3 py-2 mb-4"
+                style={{ background: 'var(--color-danger-soft)', border: '1px solid var(--color-danger)', color: 'var(--color-danger)' }}
+              >
                 {formError}
               </div>
             )}
 
             <div className="flex gap-3">
-              <button
-                onClick={closeModal}
-                className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium rounded-lg py-2 hover:bg-gray-50 transition-colors"
-              >
+              <button onClick={closeModal} className="ed-btn ed-btn-secondary" style={{ flex: 1 }}>
                 Cancel
               </button>
-              <button
-                onClick={handleFormSubmit}
-                disabled={formLoading}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium rounded-lg py-2 transition-colors"
-              >
+              <button onClick={handleFormSubmit} disabled={formLoading} className="ed-btn ed-btn-primary" style={{ flex: 1 }}>
                 {formLoading ? "Saving..." : editingProject ? "Save Changes" : "Create Project"}
               </button>
             </div>

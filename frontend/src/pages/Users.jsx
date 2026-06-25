@@ -145,17 +145,14 @@ export default function Users() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div>
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 pb-4 flex-wrap gap-3" style={{ borderBottom: '1px solid var(--color-hairline)' }}>
         <div>
-          <h1 className="text-xl font-medium text-gray-900">Users</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage system users and roles</p>
+          <h1 className="ed-page-title">Users</h1>
+          <p className="ed-page-subtitle">Manage system users and roles</p>
         </div>
-        <button
-          onClick={openCreateModal}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors duration-150"
-        >
+        <button onClick={openCreateModal} className="ed-btn ed-btn-primary">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
@@ -163,18 +160,20 @@ export default function Users() {
         </button>
       </div>
 
-      <div className="flex gap-3 mb-6">
+      <div className="flex gap-3 mb-6 flex-wrap">
         <input
           type="text"
           placeholder="Search users..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          className="ed-input"
+          style={{ flex: 1, minWidth: 200, maxWidth: 360, height: 40 }}
         />
         <select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="ed-select"
+          style={{ width: 'auto', minWidth: 160, height: 40 }}
         >
           <option value="ALL">All Roles</option>
           <option value="ADMIN">Admin</option>
@@ -184,69 +183,75 @@ export default function Users() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3 mb-4">
+        <div
+          className="text-sm rounded-md px-4 py-3 mb-4"
+          style={{ background: 'var(--color-danger-soft)', border: '1px solid var(--color-danger)', color: 'var(--color-danger)' }}
+        >
           {error}
         </div>
       )}
 
       <div>
         {loading ? (
-          <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-sm text-gray-500">
+          <div className="ed-card-flat p-12 text-center" style={{ fontSize: 14, color: 'var(--color-muted)' }}>
             Loading users...
           </div>
         ) : filteredUsers.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-sm text-gray-500">
+          <div className="ed-card-flat p-12 text-center" style={{ fontSize: 14, color: 'var(--color-muted)' }}>
             No users found.
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             {filteredUsers.map((user) => (
               <div
                 key={user.id}
-                className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden"
+                className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4"
+                style={{
+                  background: 'var(--color-canvas)',
+                  border: '1px solid var(--color-hairline)',
+                  borderRadius: 'var(--rounded-md)',
+                  boxShadow: 'var(--shadow-sm)',
+                  opacity: user.isActive ? 1 : 0.7,
+                }}
               >
-                <div className="absolute left-0 inset-y-0 w-1.5 bg-gradient-to-b from-indigo-500 via-purple-500 to-pink-500" />
-                
                 {/* Left: Avatar + Info */}
-                <div className="flex items-center gap-4 w-full sm:w-1/3">
-                  <div className="w-12 h-12 shrink-0 rounded-full bg-gradient-to-tr from-indigo-100 to-purple-100 flex items-center justify-center text-lg font-bold text-indigo-700 shadow-inner">
+                <div className="flex items-center gap-3 w-full sm:w-1/3 min-w-0">
+                  <div
+                    className="w-11 h-11 shrink-0 flex items-center justify-center"
+                    style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)', borderRadius: 'var(--rounded-full)', fontSize: 16, fontWeight: 600 }}
+                  >
                     {user.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-semibold text-gray-900 text-base tracking-tight truncate">
+                    <h3 className="truncate" style={{ fontSize: 15, fontWeight: 500, color: 'var(--color-ink)' }}>
                       {user.name}
                     </h3>
-                    <p className="text-sm text-gray-500 truncate" title={user.email}>
+                    <p className="truncate" style={{ fontSize: 13, color: 'var(--color-muted)' }} title={user.email}>
                       {user.email}
                     </p>
                   </div>
                 </div>
 
                 {/* Middle: Badges */}
-                <div className="flex items-center gap-3 w-full sm:w-1/3 sm:justify-center">
+                <div className="flex items-center gap-2 w-full sm:w-1/3 sm:justify-center">
                   <RoleBadge role={user.role} />
                   <StatusBadge active={user.isActive} />
                 </div>
 
                 {/* Right: Actions */}
                 <div className="flex items-center gap-2 w-full sm:w-auto sm:justify-end shrink-0">
-                  <button
-                    onClick={() => openEditModal(user)}
-                    className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-semibold rounded-xl border border-gray-200 transition-colors duration-150"
-                  >
+                  <button onClick={() => openEditModal(user)} className="ed-btn ed-btn-secondary ed-btn-sm">
                     Edit
                   </button>
                   {user.isActive ? (
-                    <button
-                      onClick={() => handleDeactivate(user.id)}
-                      className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-xl border border-red-100 transition-colors duration-150"
-                    >
+                    <button onClick={() => handleDeactivate(user.id)} className="ed-btn ed-btn-danger ed-btn-sm">
                       Deactivate
                     </button>
                   ) : (
                     <button
                       onClick={() => handleActivate(user.id)}
-                      className="px-4 py-2 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold rounded-xl border border-green-100 transition-colors duration-150"
+                      className="ed-btn ed-btn-sm"
+                      style={{ background: 'var(--color-success-soft)', color: 'var(--color-success)', border: '1px solid var(--color-hairline-strong)' }}
                     >
                       Activate
                     </button>
@@ -259,14 +264,17 @@ export default function Users() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center px-4 z-50">
-          <div className="bg-white rounded-xl border border-gray-200 w-full max-w-md p-6">
+        <div className="fixed inset-0 flex items-center justify-center px-4 z-50" style={{ background: 'rgba(24,29,38,0.45)' }}>
+          <div
+            className="w-full max-w-md p-6"
+            style={{ background: 'var(--color-canvas)', border: '1px solid var(--color-hairline)', borderRadius: 'var(--rounded-lg)', boxShadow: 'var(--shadow-lg)' }}
+          >
 
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-medium text-gray-900">
+              <h2 style={{ fontSize: 18, fontWeight: 500, color: 'var(--color-ink)' }}>
                 {editingUser ? "Edit User" : "Add User"}
               </h2>
-              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
+              <button onClick={closeModal} style={{ color: 'var(--color-faint)' }}>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -274,37 +282,38 @@ export default function Users() {
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
+              <label className="ed-label">Name</label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Full name"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="ed-input"
               />
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
+              <label className="ed-label">Email</label>
               <input
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="email@example.com"
                 disabled={!!editingUser}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400"
+                className="ed-input"
+                style={editingUser ? { background: 'var(--color-surface-soft)', color: 'var(--color-faint)' } : undefined}
               />
               {editingUser && (
-                <p className="text-xs text-gray-400 mt-1">Email cannot be changed.</p>
+                <p style={{ fontSize: 12, color: 'var(--color-faint)', marginTop: 4 }}>Email cannot be changed.</p>
               )}
             </div>
 
             <div className="mb-5">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Role</label>
+              <label className="ed-label">Role</label>
               <select
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="ed-select"
               >
                 <option value="COLLABORATOR">Collaborator</option>
                 <option value="PROJECT_MANAGER">Project Manager</option>
@@ -313,23 +322,19 @@ export default function Users() {
             </div>
 
             {formError && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-xs rounded-lg px-3 py-2 mb-4">
+              <div
+                className="text-xs rounded-md px-3 py-2 mb-4"
+                style={{ background: 'var(--color-danger-soft)', border: '1px solid var(--color-danger)', color: 'var(--color-danger)' }}
+              >
                 {formError}
               </div>
             )}
 
             <div className="flex gap-3">
-              <button
-                onClick={closeModal}
-                className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium rounded-lg py-2 hover:bg-gray-50 transition-colors"
-              >
+              <button onClick={closeModal} className="ed-btn ed-btn-secondary" style={{ flex: 1 }}>
                 Cancel
               </button>
-              <button
-                onClick={handleFormSubmit}
-                disabled={formLoading}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium rounded-lg py-2 transition-colors"
-              >
+              <button onClick={handleFormSubmit} disabled={formLoading} className="ed-btn ed-btn-primary" style={{ flex: 1 }}>
                 {formLoading ? "Saving..." : editingUser ? "Save Changes" : "Create User"}
               </button>
             </div>
@@ -344,9 +349,9 @@ export default function Users() {
 
 function RoleBadge({ role }) {
   const styles = {
-    ADMIN: "bg-purple-100 text-purple-700",
-    PROJECT_MANAGER: "bg-blue-100 text-blue-700",
-    COLLABORATOR: "bg-green-100 text-green-700",
+    ADMIN: { background: 'var(--color-surface-strong)', color: 'var(--color-ink)' },
+    PROJECT_MANAGER: { background: 'var(--color-info-soft)', color: 'var(--color-info)' },
+    COLLABORATOR: { background: 'var(--color-success-soft)', color: 'var(--color-success)' },
   };
   const labels = {
     ADMIN: "Admin",
@@ -354,7 +359,7 @@ function RoleBadge({ role }) {
     COLLABORATOR: "Collaborator",
   };
   return (
-    <span className={`text-xs font-medium px-2 py-1 rounded-full ${styles[role] || "bg-gray-100 text-gray-600"}`}>
+    <span className="ed-badge" style={styles[role] || { background: 'var(--color-surface-strong)', color: 'var(--color-muted)' }}>
       {labels[role] || role}
     </span>
   );
@@ -362,7 +367,12 @@ function RoleBadge({ role }) {
 
 function StatusBadge({ active }) {
   return (
-    <span className={`text-xs font-medium px-2 py-1 rounded-full ${active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+    <span
+      className="ed-badge"
+      style={active
+        ? { background: 'var(--color-success-soft)', color: 'var(--color-success)' }
+        : { background: 'var(--color-surface-strong)', color: 'var(--color-muted)' }}
+    >
       {active ? "Active" : "Inactive"}
     </span>
   );

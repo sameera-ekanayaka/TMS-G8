@@ -10,20 +10,13 @@ const TaskTable = ({ tasks, onEdit, onView, canManage = true }) => {
   const [sortDirection, setSortDirection] = useState('desc');
 
   const getPriorityBadge = (priority) => {
-    switch (priority) {
-      case 'High': return 'bg-signature-coral text-white border border-signature-coral';
-      case 'Medium': return 'bg-signature-yellow text-ink border border-signature-yellow';
-      case 'Low': default: return 'bg-signature-mint text-ink border border-signature-mint';
-    }
+    const map = { High: 'ed-badge-high', Medium: 'ed-badge-medium', Low: 'ed-badge-low' };
+    return `ed-badge ${map[priority] || 'ed-badge-low'}`;
   };
 
   const getStatusBadge = (status) => {
-    switch (status) {
-      case 'To Do': return 'bg-surface-strong text-ink border border-borderstrong/20';
-      case 'In Progress': return 'bg-signature-peach text-ink border border-signature-peach';
-      case 'Completed': return 'bg-success text-white border border-success';
-      default: return 'bg-surface-strong text-ink border border-borderstrong/20';
-    }
+    const map = { 'To Do': 'ed-badge-todo', 'In Progress': 'ed-badge-progress', 'Completed': 'ed-badge-done' };
+    return `ed-badge ${map[status] || 'ed-badge-todo'}`;
   };
 
   const formatDate = (date) => {
@@ -73,8 +66,8 @@ const TaskTable = ({ tasks, onEdit, onView, canManage = true }) => {
   };
 
   return (
-    <div className="bg-canvas border border-borderstrong/40 rounded-md p-6 px-8 shadow-sm font-sans">
-      <div className="overflow-x-auto">
+    <div className="ed-card-flat shadow-sm p-2 sm:p-4">
+      <div className="overflow-x-auto ed-scroll">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-borderstrong/30">
@@ -118,12 +111,12 @@ const TaskTable = ({ tasks, onEdit, onView, canManage = true }) => {
                   </div>
                 </td>
                 <td className="py-4">
-                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-sm uppercase tracking-wide ${getPriorityBadge(task.priority)}`}>
+                  <span className={getPriorityBadge(task.priority)}>
                     {task.priority}
                   </span>
                 </td>
                 <td className="py-4">
-                  <span className={`text-[12px] font-medium px-2.5 py-1 rounded-sm ${getStatusBadge(task.status)}`}>
+                  <span className={getStatusBadge(task.status)}>
                     {task.status}
                   </span>
                 </td>

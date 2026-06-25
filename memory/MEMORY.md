@@ -1,0 +1,1 @@
+- [No AI commit attribution](no-ai-commit-attribution.md) — commits must have no Co-Authored-By/AI trailer; write as plain human edits
