@@ -2,10 +2,12 @@
 FROM node:18-alpine AS builder
 WORKDIR /app
 
-# vite bakes env vars in at build time, so the URLs have to come in as build
-# args here, otherwise the build falls back to localhost
-ARG VITE_API_URL=http://localhost:5000
-ARG VITE_WS_URL=http://localhost:5000
+# Production URLs are hardcoded as ARG defaults so Vite always bakes in the
+# correct value even if CI/CD build-args fail to inject.
+# CI/CD can still override these via --build-arg but they will always fall back
+# to the correct production values.
+ARG VITE_API_URL=https://tms-backend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io/api
+ARG VITE_WS_URL=https://tms-backend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_WS_URL=$VITE_WS_URL
 
