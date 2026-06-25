@@ -45,12 +45,16 @@ export const resetPassword = (authToken, tempPassword, newPassword) =>
     authHeader(authToken)
   );
 
+export const forgotPassword = (email) =>
+  api.post("/api/auth/forgot-password", { email });
+
 // ════════ USER ENDPOINTS ════════════════════════════════════════════════════
 export const getUsers = (token) => api.get("/api/users", authHeader(token));
 export const createUser = (token, data) => api.post("/api/users", data, authHeader(token));
 export const updateUser = (token, id, data) => api.put(`/api/users/${id}`, data, authHeader(token));
 export const deactivateUser = (token, id) => api.patch(`/api/users/${id}/deactivate`, {}, authHeader(token));
 export const activateUser = (token, id) => api.patch(`/api/users/${id}/activate`, {}, authHeader(token));
+export const deleteUser = (token, id) => api.delete(`/api/users/${id}`, authHeader(token));
 
 // ════════ TASK ENDPOINTS ════════════════════════════════════════════════════
 export const getTasks = (token, filters = {}) => {

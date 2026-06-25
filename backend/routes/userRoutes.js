@@ -11,6 +11,7 @@ const {
   updateUser,
   deactivateUser,
   activateUser,
+  deleteUser,
 } = require("../controllers/userController");
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
@@ -169,5 +170,27 @@ router.patch("/:id/deactivate", authorizeRoles("ADMIN"), deactivateUser);
  *         description: User not found
  */
 router.patch("/:id/activate", authorizeRoles("ADMIN"), activateUser);
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   delete:
+ *     summary: Permanently delete a user (Admin only — must be deactivated first)
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: User permanently deleted
+ *       400:
+ *         description: User is still active, or self-delete attempt
+ *       404:
+ *         description: User not found
+ */
+router.delete("/:id", authorizeRoles("ADMIN"), deleteUser);
 
 module.exports = router;

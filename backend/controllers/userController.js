@@ -363,6 +363,51 @@ const activateUser = async (req, res) => {
   }
 };
 
+// ─── DELETE /api/users/:id ───────────────────────────
+// Admin permanently deletes a user. Only a *deactivated* user can be deleted
+// (deactivate first), since a hard delete cascades — it also removes the tasks
+// that user created, plus their comments, attachments, assignments, and
+// notifications (managed projects just have their manager cleared).
+const deleteUser = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+
+    if (userId === req.user.id) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "You cannot delete your own account.",
+      });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: "User not found.",
+      });
+    }
+
+    if (user.isActive) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "Deactivate the user before permanently deleting them.",
+      });
+    }
+
+    await prisma.user.delete({ where: { id: userId } });
+
+    return res.status(200).json({
+      message: "User permanently deleted.",
+    });
+  } catch (error) {
+    console.error("Delete user error:", error);
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to delete user.",
+    });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getUserById,
@@ -370,4 +415,5 @@ module.exports = {
   updateUser,
   deactivateUser,
   activateUser,
+  deleteUser,
 };

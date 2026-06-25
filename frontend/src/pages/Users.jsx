@@ -6,6 +6,7 @@ import {
   updateUser,
   deactivateUser,
   activateUser,
+  deleteUser,
 } from "../services/api";
 import toast from "react-hot-toast";
 
@@ -144,6 +145,21 @@ export default function Users() {
     }
   }
 
+  async function handleDelete(id) {
+    if (!window.confirm(
+      "Permanently delete this user? This also deletes the tasks they created and their comments/attachments. This cannot be undone."
+    )) return;
+    try {
+      await deleteUser(token, id);
+      await fetchUsers();
+      toast.success("User permanently deleted.");
+    } catch (err) {
+      const message = err.response?.data?.message || "Failed to delete user.";
+      setError(message);
+      toast.error(message);
+    }
+  }
+
   return (
     <div>
 
@@ -248,13 +264,23 @@ export default function Users() {
                       Deactivate
                     </button>
                   ) : (
-                    <button
-                      onClick={() => handleActivate(user.id)}
-                      className="ed-btn ed-btn-sm"
-                      style={{ background: 'var(--color-success-soft)', color: 'var(--color-success)', border: '1px solid var(--color-hairline-strong)' }}
-                    >
-                      Activate
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleActivate(user.id)}
+                        className="ed-btn ed-btn-sm"
+                        style={{ background: 'var(--color-success-soft)', color: 'var(--color-success)', border: '1px solid var(--color-hairline-strong)' }}
+                      >
+                        Activate
+                      </button>
+                      <button
+                        onClick={() => handleDelete(user.id)}
+                        className="ed-btn ed-btn-sm"
+                        style={{ background: 'var(--color-danger)', color: '#fff', border: '1px solid var(--color-danger)' }}
+                        title="Permanently delete this deactivated user"
+                      >
+                        Delete
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

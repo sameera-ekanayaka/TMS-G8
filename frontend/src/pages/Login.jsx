@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginUser } from "../services/api";
+import { loginUser, forgotPassword } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { Eye, EyeOff, Check, LayoutGrid, Bell, Users, TrendingUp } from "lucide-react";
 
@@ -11,8 +11,32 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Forgot-password flow
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMsg, setForgotMsg] = useState("");
+
   const navigate = useNavigate();
   const { login } = useAuth();
+
+  async function handleForgot(e) {
+    e.preventDefault();
+    if (!forgotEmail) {
+      setForgotMsg("Please enter your email.");
+      return;
+    }
+    setForgotLoading(true);
+    setForgotMsg("");
+    try {
+      const res = await forgotPassword(forgotEmail);
+      setForgotMsg(res.data?.message || "If an account exists, a temporary password has been sent.");
+    } catch (err) {
+      setForgotMsg("Something went wrong. Please try again.");
+    } finally {
+      setForgotLoading(false);
+    }
+  }
 
   function validate() {
     if (!email || !password) {
@@ -125,11 +149,13 @@ export default function Login() {
         {/* Floating Card */}
         <div className="w-full max-w-[420px] bg-white rounded-xl border border-gray-100 shadow-[0_2px_20px_rgb(0,0,0,0.04)] p-10">
           
+          {!forgotMode ? (
+          <>
           <h2 className="text-[32px] font-normal text-gray-900 mb-2 tracking-tight">Welcome back</h2>
           <p className="text-[14px] text-gray-500 mb-10">Sign in to your TaskHub account</p>
 
           <form onSubmit={handleSubmit} noValidate>
-            
+
             <div className="mb-6">
               <label className="block text-[13px] font-medium text-gray-700 mb-2.5">Email address</label>
               <input
@@ -141,7 +167,7 @@ export default function Login() {
               />
             </div>
 
-            <div className="mb-8 relative">
+            <div className="mb-2 relative">
               <label className="block text-[13px] font-medium text-gray-700 mb-2.5">Password</label>
               <div className="relative">
                 <input
@@ -161,6 +187,16 @@ export default function Login() {
               </div>
             </div>
 
+            <div className="text-right mb-6">
+              <button
+                type="button"
+                onClick={() => { setForgotMode(true); setForgotMsg(""); setForgotEmail(email); }}
+                className="text-[13px] text-[#1a1f26] hover:underline font-medium"
+              >
+                Forgot password?
+              </button>
+            </div>
+
             {error && (
               <div className="bg-red-50 text-red-600 text-[13px] rounded-lg px-4 py-3 mb-6 font-medium">
                 {error}
@@ -175,6 +211,48 @@ export default function Login() {
               {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
+          </>
+          ) : (
+          <>
+          <h2 className="text-[32px] font-normal text-gray-900 mb-2 tracking-tight">Reset password</h2>
+          <p className="text-[14px] text-gray-500 mb-10">Enter your email and we'll send a temporary password.</p>
+
+          <form onSubmit={handleForgot} noValidate>
+            <div className="mb-6">
+              <label className="block text-[13px] font-medium text-gray-700 mb-2.5">Email address</label>
+              <input
+                type="email"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full bg-[#edf2f7] border border-transparent rounded-[8px] px-4 py-3 text-[14px] text-gray-900 placeholder-gray-500 focus:outline-none focus:bg-white focus:border-[#c5d3e0] transition-colors"
+              />
+            </div>
+
+            {forgotMsg && (
+              <div className="bg-[#eff6ff] text-[#254fad] text-[13px] rounded-lg px-4 py-3 mb-6 font-medium">
+                {forgotMsg}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={forgotLoading}
+              className="w-full bg-[#1a1f26] hover:bg-[#111418] disabled:opacity-50 text-white text-[15px] font-medium rounded-[8px] py-3 transition-colors"
+            >
+              {forgotLoading ? "Sending..." : "Send temporary password"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setForgotMode(false)}
+              className="w-full mt-3 text-[13px] text-gray-500 hover:text-gray-800 font-medium"
+            >
+              ← Back to sign in
+            </button>
+          </form>
+          </>
+          )}
 
           <div className="mt-8 pt-6 border-t border-gray-100 text-center">
             <p className="text-[12px] text-gray-500">

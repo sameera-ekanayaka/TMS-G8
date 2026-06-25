@@ -4,7 +4,7 @@
 
 const express = require("express");
 const router = express.Router();
-const { login, resetPassword, getMe } = require("../controllers/authController");
+const { login, resetPassword, getMe, forgotPassword } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 
 /**
@@ -46,6 +46,32 @@ const { protect } = require("../middleware/authMiddleware");
  *         description: Account deactivated
  */
 router.post("/login", login);
+
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Request a temporary password by email (public)
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: user@example.com
+ *     responses:
+ *       200:
+ *         description: Generic acknowledgement (does not reveal if the email exists)
+ *       400:
+ *         description: Email missing
+ */
+router.post("/forgot-password", forgotPassword);
 
 /**
  * @swagger
