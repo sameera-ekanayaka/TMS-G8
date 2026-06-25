@@ -16,6 +16,7 @@ export default function Login() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotMsg, setForgotMsg] = useState("");
+  const [forgotError, setForgotError] = useState(false);
 
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -23,16 +24,20 @@ export default function Login() {
   async function handleForgot(e) {
     e.preventDefault();
     if (!forgotEmail) {
+      setForgotError(true);
       setForgotMsg("Please enter your email.");
       return;
     }
     setForgotLoading(true);
     setForgotMsg("");
+    setForgotError(false);
     try {
       const res = await forgotPassword(forgotEmail);
-      setForgotMsg(res.data?.message || "If an account exists, a temporary password has been sent.");
+      setForgotError(false);
+      setForgotMsg(res.data?.message || "A temporary password has been sent to your email.");
     } catch (err) {
-      setForgotMsg("Something went wrong. Please try again.");
+      setForgotError(true);
+      setForgotMsg(err.response?.data?.message || "Something went wrong. Please try again.");
     } finally {
       setForgotLoading(false);
     }
@@ -190,7 +195,7 @@ export default function Login() {
             <div className="text-right mb-6">
               <button
                 type="button"
-                onClick={() => { setForgotMode(true); setForgotMsg(""); setForgotEmail(email); }}
+                onClick={() => { setForgotMode(true); setForgotMsg(""); setForgotError(false); setForgotEmail(email); }}
                 className="text-[13px] text-[#1a1f26] hover:underline font-medium"
               >
                 Forgot password?
@@ -230,7 +235,11 @@ export default function Login() {
             </div>
 
             {forgotMsg && (
-              <div className="bg-[#eff6ff] text-[#254fad] text-[13px] rounded-lg px-4 py-3 mb-6 font-medium">
+              <div
+                className={`text-[13px] rounded-lg px-4 py-3 mb-6 font-medium ${
+                  forgotError ? "bg-red-50 text-red-600" : "bg-[#eff6ff] text-[#254fad]"
+                }`}
+              >
                 {forgotMsg}
               </div>
             )}

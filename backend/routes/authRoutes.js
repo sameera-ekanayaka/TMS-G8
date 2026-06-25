@@ -67,9 +67,13 @@ router.post("/login", login);
  *                 example: user@example.com
  *     responses:
  *       200:
- *         description: Generic acknowledgement (does not reveal if the email exists)
+ *         description: Temporary password emailed
  *       400:
  *         description: Email missing
+ *       403:
+ *         description: Account is deactivated
+ *       404:
+ *         description: No account found with that email
  */
 router.post("/forgot-password", forgotPassword);
 

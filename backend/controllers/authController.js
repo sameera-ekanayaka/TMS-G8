@@ -149,9 +149,9 @@ if (!passwordRegex.test(newPassword)) {
 };
 
 // ─── POST /api/auth/forgot-password ───────────────────────────
-// Public. Body: { email }. If the email belongs to an active account, generates
-// a new temporary password, sets mustResetPassword, and emails it. Always returns
-// the same generic 200 so the endpoint can't be used to discover which emails exist.
+// Public. Body: { email }. Accounts are admin-provisioned, so this only works for
+// an existing, active account — a temporary password is emailed and the user is
+// flagged to reset it. Unknown emails and deactivated accounts return an error.
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -160,21 +160,32 @@ const forgotPassword = async (req, res) => {
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
-    if (user && user.isActive) {
-      const tempPassword = crypto.randomBytes(5).toString("hex"); // e.g. "a3f9c2d1b4"
-      const hashed = await bcrypt.hash(tempPassword, 10);
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { password: hashed, mustResetPassword: true },
+    if (!user) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: "No account found with this email address. Accounts are created by an administrator.",
       });
-      // Fire-and-forget — the response shouldn't depend on email delivery timing.
-      sendPasswordResetEmail({ to: user.email, name: user.name, tempPassword }).catch((e) =>
-        console.error("Password-reset email failed:", e.message)
-      );
+    }
+    if (!user.isActive) {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "This account has been deactivated. Please contact your administrator.",
+      });
     }
 
+    const tempPassword = crypto.randomBytes(5).toString("hex"); // e.g. "a3f9c2d1b4"
+    const hashed = await bcrypt.hash(tempPassword, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashed, mustResetPassword: true },
+    });
+    // Fire-and-forget — the response shouldn't depend on email delivery timing.
+    sendPasswordResetEmail({ to: user.email, name: user.name, tempPassword }).catch((e) =>
+      console.error("Password-reset email failed:", e.message)
+    );
+
     return res.status(200).json({
-      message: "If an account exists for that email, a temporary password has been sent.",
+      message: "A temporary password has been sent to your email.",
     });
   } catch (error) {
     console.error("Forgot password error:", error);
