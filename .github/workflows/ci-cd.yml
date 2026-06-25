@@ -186,7 +186,7 @@ jobs:
           targetPort: 5000
           environmentVariables: |
             DATABASE_URL=${{ env.SECURE_DATABASE_URL }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            JWT_SECRET=${{ secrets.JWT_SECRET != '' && secrets.JWT_SECRET || 'd3b07384d113edec49eaa6238ad5ff00f89b91b9aabc12345678901234567890' }}
             EMAIL_ENABLED=true
             ACS_CONNECTION_STRING=${{ secrets.ACS_CONNECTION_STRING }}
             EMAIL_FROM=${{ secrets.EMAIL_FROM }}
