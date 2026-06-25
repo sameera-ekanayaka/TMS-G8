@@ -4,7 +4,7 @@
 
 const express = require("express");
 const router = express.Router();
-const { login, resetPassword } = require("../controllers/authController");
+const { login, resetPassword, getMe } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 
 /**
@@ -77,5 +77,21 @@ router.post("/login", login);
  *         description: Incorrect temporary password or invalid token
  */
 router.post("/reset-password", protect, resetPassword);
+
+/**
+ * @swagger
+ * /api/auth/me:
+ *   get:
+ *     summary: Get the current authenticated user (fresh role/status)
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current user
+ *       401:
+ *         description: Unauthorized / invalid session
+ */
+router.get("/me", protect, getMe);
 
 module.exports = router;

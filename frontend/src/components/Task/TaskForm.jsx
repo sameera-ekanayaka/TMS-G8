@@ -13,6 +13,7 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [assigneeSearch, setAssigneeSearch] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -26,18 +27,20 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
   const { token } = useAuth();
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchData = async () => {
       try {
-        const response = await getUsers(token);
-        setUsers(response.data.users || []);
-        
-        const projResponse = await getProjects(token);
-        setProjects(projResponse.data?.projects || []);
+        // Fetch in parallel so the assignee list isn't gated behind projects.
+        const [usersRes, projRes] = await Promise.all([
+          getUsers(token),
+          getProjects(token),
+        ]);
+        setUsers(usersRes.data.users || []);
+        setProjects(projRes.data?.projects || []);
       } catch (error) {
-        console.error('Failed to fetch users:', error);
+        console.error('Failed to load users/projects:', error);
       }
     };
-    fetchUsers();
+    fetchData();
 
     if (task) {
       setFormData({
@@ -70,6 +73,13 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // A task must belong to a project (mirrors the backend rule).
+    if (!formData.projectId) {
+      toast.error("Please select a project for this task.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -144,11 +154,26 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
           <div className="space-y-4">
             <div>
               <label className="ed-label">Assign to</label>
+              <input
+                type="text"
+                placeholder="Search assignees…"
+                value={assigneeSearch}
+                onChange={(e) => setAssigneeSearch(e.target.value)}
+                className="ed-input"
+                style={{ height: 36, marginBottom: 8 }}
+              />
               <div
                 className="w-full px-3 py-2 max-h-32 overflow-y-auto space-y-1 ed-scroll"
                 style={{ border: '1px solid var(--color-hairline-strong)', borderRadius: 'var(--rounded-sm)', background: 'var(--color-surface-soft)' }}
               >
-                {users.filter(u => u.role !== 'ADMIN').map(user => (
+                {users
+                  .filter(u => u.role !== 'ADMIN')
+                  .filter(u => {
+                    const q = assigneeSearch.trim().toLowerCase();
+                    if (!q) return true;
+                    return (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+                  })
+                  .map(user => (
                   <label key={user.id} className="ed-notif flex items-center gap-2 cursor-pointer p-1.5" style={{ borderRadius: 'var(--rounded-sm)' }}>
                     <input
                       type="checkbox"
@@ -165,13 +190,18 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
             </div>
 
             <div>
-              <label className="ed-label">Project</label>
-              <select name="projectId" value={formData.projectId} onChange={handleChange} className="ed-select">
-                <option value="">No Project</option>
+              <label className="ed-label">Project *</label>
+              <select name="projectId" value={formData.projectId} onChange={handleChange} className="ed-select" required>
+                <option value="" disabled>Select a project</option>
                 {projects.map(project => (
                   <option key={project.id} value={project.id}>{project.name}</option>
                 ))}
               </select>
+              {projects.length === 0 && (
+                <p style={{ fontSize: 12, color: 'var(--color-muted)', marginTop: 4 }}>
+                  No projects yet — create a project first.
+                </p>
+              )}
             </div>
 
             <div>

@@ -18,6 +18,13 @@ RUN npm ci --omit=dev
 COPY . .
 RUN npx prisma generate
 
+# The app writes uploaded attachments to /app/uploads. Files copied above are
+# owned by root, so the non-root runtime user can't write there — create the
+# dir and hand it to appuser, otherwise multer fails with EACCES on every upload.
+# NOTE: Container Apps storage is ephemeral; mount an Azure Files volume here for
+# uploads that must survive restarts/scaling.
+RUN mkdir -p /app/uploads && chown -R appuser:appgroup /app/uploads
+
 # Switch to non-root
 USER appuser
 

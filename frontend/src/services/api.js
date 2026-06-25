@@ -4,9 +4,35 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:5000" : "https://tms-backend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io"),
 });
 
+// Auto-logout on an invalid/expired/deactivated session (401). Skip the auth
+// endpoints that legitimately return 401 for credential errors (login, reset,
+// forgot) so a wrong-password attempt doesn't kick the user out. A 401 from any
+// other endpoint (incl. /auth/me) means the session is no longer valid.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status;
+    const url = error.config?.url || "";
+    const isCredentialCall =
+      url.includes("/auth/login") ||
+      url.includes("/auth/reset-password") ||
+      url.includes("/auth/forgot-password");
+    if (status === 401 && !isCredentialCall && localStorage.getItem("tms_token")) {
+      localStorage.removeItem("tms_token");
+      localStorage.removeItem("tms_user");
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const authHeader = (token) => ({
   headers: { Authorization: `Bearer ${token}` },
 });
+
+export const getMe = (token) => api.get("/api/auth/me", authHeader(token));
 
 // ════════ AUTH ENDPOINTS ════════════════════════════════════════════════════
 export const loginUser = (email, password) =>
@@ -70,17 +96,9 @@ export const uploadAttachment = (token, taskId, file) => {
   const formData = new FormData();
   formData.append("file", file);
   
-  return api.post(
-    `/api/tasks/${taskId}/attachments`,
-    formData,
-    {
-      ...authHeader(token),
-      headers: {
-        ...authHeader(token).headers,
-        "Content-Type": "multipart/form-data",
-      },
-    }
-  );
+  // Let axios/the browser set Content-Type with the correct multipart boundary —
+  // hardcoding "multipart/form-data" strips the boundary and breaks parsing.
+  return api.post(`/api/tasks/${taskId}/attachments`, formData, authHeader(token));
 };
 
 export const deleteAttachment = (token, attachmentId) =>
