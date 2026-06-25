@@ -67,6 +67,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Secure Database URL
+        run: |
+          URL="${{ secrets.DATABASE_URL }}"
+          if [[ "$URL" != *"sslaccept="* ]]; then
+            if [[ "$URL" == *"?"* ]]; then
+              URL="${URL}&sslaccept=strict"
+            else
+              URL="${URL}?sslaccept=strict"
+            fi
+          fi
+          # We export it to GITHUB_ENV so subsequent steps can use it safely
+          echo "SECURE_DATABASE_URL=$URL" >> $GITHUB_ENV
+
       - name: Run Prisma Migrations & Seed
         working-directory: ./backend
         run: |
@@ -74,7 +87,7 @@ jobs:
           npx prisma migrate deploy
           npx prisma db seed
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: ${{ env.SECURE_DATABASE_URL }}
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -144,7 +157,7 @@ jobs:
           registryUsername: ${{ github.actor }}
           registryPassword: ${{ secrets.GHCR_TOKEN }}
           environmentVariables: |
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            DATABASE_URL=${{ env.SECURE_DATABASE_URL }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             EMAIL_ENABLED=true
             ACS_CONNECTION_STRING=${{ secrets.ACS_CONNECTION_STRING }}
