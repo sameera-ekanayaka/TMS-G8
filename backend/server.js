@@ -48,7 +48,7 @@ io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error("Authentication error: no token provided"));
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret_tms_g8_2024");
     socket.userId = decoded.id;
     socket.userRole = decoded.role;
     next();
