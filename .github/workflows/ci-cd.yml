@@ -128,7 +128,7 @@ jobs:
             ${{ env.IMAGE_FRONTEND }}:latest
             ${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
           build-args: |
-            VITE_API_URL=https://tms-backend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io/api
+            VITE_API_URL=https://tms-backend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io
             VITE_WS_URL=https://tms-backend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io
           # NOTE: cache intentionally disabled so Vite always rebuilds with the correct production URLs
           no-cache: true
