@@ -22,7 +22,7 @@ const jwt = require("jsonwebtoken");
 
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: process.env.CLIENT_URL || (process.env.NODE_ENV === "production" ? "https://tms-frontend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io" : "http://localhost:5173"),
     methods: ["GET", "POST"],
   },
 });
@@ -92,7 +92,7 @@ app.use(
   })
 );
 
-app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173", credentials: true }));
+app.use(cors({ origin: process.env.CLIENT_URL || (process.env.NODE_ENV === "production" ? "https://tms-frontend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io" : "http://localhost:5173"), credentials: true }));
 app.use(express.json());
 const path = require("path");
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

@@ -21,7 +21,7 @@ export const SocketProvider = ({ children }) => {
     }
 
     // Get the WebSocket URL from environment or use default
-    const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
+    const wsUrl = import.meta.env.VITE_WS_URL || (import.meta.env.DEV ? 'http://localhost:5000' : 'https://tms-backend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io');
     
     console.log('🔌 Connecting to socket:', wsUrl);
 
