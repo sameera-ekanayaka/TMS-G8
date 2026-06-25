@@ -5,6 +5,7 @@
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const { sendOnboardingEmail } = require("../services/emailService");
+const { sendUserNotification } = require("../services/socketService");
 
 const prisma = require("../lib/prisma");
 
@@ -251,6 +252,18 @@ const updateUser = async (req, res) => {
         createdAt: true,
       },
     });
+
+    // Administrative update: notify the user when their role changes (SRS).
+    // Fire-and-forget so a notification failure never breaks the update.
+    if (role && role !== existing.role) {
+      const readableRole = role.replace(/_/g, " ").toLowerCase();
+      sendUserNotification(
+        req.io,
+        req.connectedUsers,
+        userId,
+        `An administrator changed your role to ${readableRole}.`
+      ).catch((e) => console.error("Role-change notification failed:", e.message));
+    }
 
     return res.status(200).json({
       message: "User updated successfully.",

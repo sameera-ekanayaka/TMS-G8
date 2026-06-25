@@ -93,6 +93,31 @@ router.post(
  *         description: Internal server error
  */
 router.get("/:id/attachments", protect, getAttachments);
+
+/**
+ * @swagger
+ * /api/tasks/attachments/{attachmentId}:
+ *   delete:
+ *     summary: Delete an attachment (uploader or admin only)
+ *     tags: [Attachments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: attachmentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Attachment deleted
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden — only the uploader or an admin can delete
+ *       404:
+ *         description: Attachment not found
+ */
 router.delete("/attachments/:attachmentId", protect, deleteAttachment);
 
 module.exports = router;

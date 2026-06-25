@@ -3,6 +3,7 @@
 // Member 1 (Sameera)
 
 const prisma = require("../lib/prisma");
+const { sendUserNotification } = require("../services/socketService");
 
 // ════════ POST /api/projects ═════════════════════════════════════════════════
 // Create a new project
@@ -65,6 +66,17 @@ const createProject = async (req, res) => {
         },
       },
     });
+
+    // Administrative update: notify the assigned manager (unless they assigned
+    // themselves). Fire-and-forget so it never blocks project creation.
+    if (parsedManagerId && parsedManagerId !== req.user.id) {
+      sendUserNotification(
+        req.io,
+        req.connectedUsers,
+        parsedManagerId,
+        `You were assigned as manager of project "${newProject.name}".`
+      ).catch((e) => console.error("Manager-assignment notification failed:", e.message));
+    }
 
     return res.status(201).json({
       message: "Project created successfully",
@@ -249,6 +261,20 @@ const updateProject = async (req, res) => {
         },
       },
     });
+
+    // Administrative update: notify a newly-assigned manager (changed, not self).
+    if (
+      parsedManagerId &&
+      parsedManagerId !== existingProject.managerId &&
+      parsedManagerId !== req.user.id
+    ) {
+      sendUserNotification(
+        req.io,
+        req.connectedUsers,
+        parsedManagerId,
+        `You were assigned as manager of project "${updatedProject.name}".`
+      ).catch((e) => console.error("Manager-assignment notification failed:", e.message));
+    }
 
     return res.status(200).json({
       message: "Project updated successfully",

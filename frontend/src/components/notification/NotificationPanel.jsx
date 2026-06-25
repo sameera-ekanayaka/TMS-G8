@@ -109,11 +109,27 @@ const NotificationPanel = () => {
       setUnreadCount(prev => prev + 1);
     };
 
+    // Handle administrative updates (role change, project-manager assignment)
+    const handleAdminUpdate = (data) => {
+      console.log('🛠️ Admin update:', data);
+      const newNotification = {
+        id: data.id || Date.now(),
+        message: data.message,
+        type: 'admin_update',
+        createdAt: data.createdAt || new Date().toISOString(),
+        isRead: false,
+        taskId: data.taskId || null,
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+    };
+
     // Register event listeners
     socket.on('task_assigned', handleTaskAssigned);
     socket.on('task_status_changed', handleTaskStatusChanged);
     socket.on('comment_added', handleTaskCommented);
     socket.on('deadline_approaching', handleDeadlineApproaching);
+    socket.on('admin_update', handleAdminUpdate);
 
     // Handle reconnection - fetch missed notifications
     const handleReconnect = () => {
@@ -129,6 +145,7 @@ const NotificationPanel = () => {
       socket.off('task_status_changed', handleTaskStatusChanged);
       socket.off('comment_added', handleTaskCommented);
       socket.off('deadline_approaching', handleDeadlineApproaching);
+      socket.off('admin_update', handleAdminUpdate);
       socket.off('connect', handleReconnect);
     };
   }, [socket]);
