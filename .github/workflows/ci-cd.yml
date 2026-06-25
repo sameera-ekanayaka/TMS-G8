@@ -68,17 +68,24 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Secure Database URL
+        env:
+          DB_URL_SECRET: ${{ secrets.DATABASE_URL }}
         run: |
-          URL="${{ secrets.DATABASE_URL }}"
-          if [[ "$URL" != *"sslaccept="* ]]; then
-            if [[ "$URL" == *"?"* ]]; then
-              URL="${URL}&sslaccept=strict"
-            else
-              URL="${URL}?sslaccept=strict"
-            fi
-          fi
-          # We export it to GITHUB_ENV so subsequent steps can use it safely
-          echo "SECURE_DATABASE_URL=$URL" >> $GITHUB_ENV
+          # Robustly handle newlines, quotes, and query parameter injection
+          SECURE_URL=$(node -e "
+            let str = process.env.DB_URL_SECRET.trim().replace(/^[\"']|[\"']$/g, '');
+            try {
+              const u = new URL(str);
+              u.searchParams.set('sslaccept', 'strict');
+              console.log(u.toString());
+            } catch(e) {
+              if (!str.includes('sslaccept=')) {
+                str += str.includes('?') ? '&sslaccept=strict' : '?sslaccept=strict';
+              }
+              console.log(str);
+            }
+          ")
+          echo "SECURE_DATABASE_URL=$SECURE_URL" >> $GITHUB_ENV
 
       - name: Run Prisma Migrations & Seed
         working-directory: ./backend
