@@ -1,4 +1,12 @@
 require("dotenv").config();
+
+// Fail fast if the JWT signing secret is missing — never fall back to a known
+// hardcoded value, which would let forged tokens be accepted.
+if (!process.env.JWT_SECRET) {
+  console.error("FATAL: JWT_SECRET is not set. Refusing to start.");
+  process.exit(1);
+}
+
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -53,7 +61,7 @@ io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error("Authentication error: no token provided"));
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret_tms_g8_2024");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.userId = decoded.id;
     socket.userRole = decoded.role;
     next();

@@ -29,7 +29,7 @@ const protect = async (req, res, next) => {
     // Verify and decode the token
     let decoded;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret_tms_g8_2024");
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
       return res.status(401).json({
         error: "Unauthorized",

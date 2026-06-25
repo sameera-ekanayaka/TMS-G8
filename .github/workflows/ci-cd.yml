@@ -186,7 +186,7 @@ jobs:
           targetPort: 5000
           environmentVariables: |
             DATABASE_URL=${{ env.SECURE_DATABASE_URL }}
-            JWT_SECRET=${{ secrets.JWT_SECRET != '' && secrets.JWT_SECRET || 'd3b07384d113edec49eaa6238ad5ff00f89b91b9aabc12345678901234567890' }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
             EMAIL_ENABLED=true
             ACS_CONNECTION_STRING=${{ secrets.ACS_CONNECTION_STRING }}
             EMAIL_FROM=${{ secrets.EMAIL_FROM }}
@@ -206,3 +206,7 @@ jobs:
           registryUrl: ghcr.io
           registryUsername: ${{ github.actor }}
           registryPassword: ${{ secrets.GHCR_TOKEN }}
+          # nginx serves on port 80 — pin it so ingress never drifts to the
+          # backend's 5000 (which makes new revisions fail health checks and
+          # silently keep serving the old image).
+          targetPort: 80
