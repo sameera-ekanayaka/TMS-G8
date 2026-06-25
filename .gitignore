@@ -17,3 +17,7 @@ logs/
 coverage/
 uploads/*
 !uploads/.gitkeep
+
+# Local agent memory and stray scratch files (never commit)
+/memory/
+OcL
