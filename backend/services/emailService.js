@@ -121,4 +121,67 @@ const sendOnboardingEmail = async ({ to, name, email, tempPassword, role }) => {
   }
 };
 
-module.exports = { sendOnboardingEmail };
+// ─── sendPasswordResetEmail ───────────────────────────────────────────────────
+// Called by the forgot-password flow: emails the user a new temporary password
+// so they can log in and then reset it (mustResetPassword is set on the account).
+const sendPasswordResetEmail = async ({ to, name, tempPassword }) => {
+  if (!EMAIL_ENABLED) {
+    console.log(`[EmailService] EMAIL_ENABLED=false — skipping reset email to ${to}`);
+    return { skipped: true };
+  }
+  const client = getEmailClient();
+  if (!client) {
+    console.warn("[EmailService] No email client configured — check ACS_CONNECTION_STRING");
+    return { skipped: true };
+  }
+
+  const rawSender = process.env.EMAIL_FROM || "DoNotReply@c858cc8f-5d2a-4984-8fb5-f512aefb38e4.azurecomm.net";
+  const senderMatch = rawSender.match(/<([^>]+)>/);
+  const senderAddress = (senderMatch ? senderMatch[1] : rawSender).trim();
+
+  const html = `
+    <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+      <div style="background: #1a1f26; padding: 32px 40px; border-radius: 8px 8px 0 0;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 500;">✓ TaskHub</h1>
+      </div>
+      <div style="padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+        <h2 style="color: #1a1f26; font-size: 20px; font-weight: 500; margin: 0 0 8px;">Password reset requested</h2>
+        <p style="color: #6b7280; font-size: 14px; margin: 0 0 28px; line-height: 1.6;">
+          Hi ${name}, use the temporary password below to sign in. You'll be asked to set a new password right away.
+        </p>
+        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 20px 24px; margin-bottom: 28px;">
+          <p style="margin: 0; font-size: 13px; color: #374151;">
+            <strong style="color: #1a1f26;">Temporary Password:</strong>&nbsp;&nbsp;
+            <code style="background: #e5e7eb; padding: 3px 8px; border-radius: 4px; font-size: 13px;">${tempPassword}</code>
+          </p>
+        </div>
+        <a href="${process.env.CLIENT_URL}/login" style="display: inline-block; background: #1a1f26; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 500;">Sign In to TaskHub</a>
+        <p style="margin-top: 32px; color: #9ca3af; font-size: 12px; line-height: 1.5;">
+          If you didn't request this, you can safely ignore this email — your password hasn't changed until you sign in with the temporary one.
+        </p>
+      </div>
+    </div>
+  `;
+
+  const emailMessage = {
+    senderAddress,
+    content: {
+      subject: "TaskHub — Password Reset",
+      plainText: "A temporary password was requested for your TaskHub account. Sign in and reset it.",
+      html,
+    },
+    recipients: { to: [{ address: to }] },
+  };
+
+  try {
+    const poller = await client.beginSend(emailMessage);
+    const result = await poller.pollUntilDone();
+    console.log(`[EmailService] Password-reset email sent to ${to} — messageId: ${result.id}`);
+    return result;
+  } catch (err) {
+    console.error(`[EmailService] Failed to send reset email to ${to}:`, err.message);
+    return { error: err.message };
+  }
+};
+
+module.exports = { sendOnboardingEmail, sendPasswordResetEmail };

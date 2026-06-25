@@ -4,8 +4,10 @@
 
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 
 const prisma = require("../lib/prisma");
+const { sendPasswordResetEmail } = require("../services/emailService");
 
 // ─── POST /api/auth/login ─────────────────────────────────────
 // Body: { email, password }
@@ -146,6 +148,40 @@ if (!passwordRegex.test(newPassword)) {
   }
 };
 
+// ─── POST /api/auth/forgot-password ───────────────────────────
+// Public. Body: { email }. If the email belongs to an active account, generates
+// a new temporary password, sets mustResetPassword, and emails it. Always returns
+// the same generic 200 so the endpoint can't be used to discover which emails exist.
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Validation Error", message: "Email is required." });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (user && user.isActive) {
+      const tempPassword = crypto.randomBytes(5).toString("hex"); // e.g. "a3f9c2d1b4"
+      const hashed = await bcrypt.hash(tempPassword, 10);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { password: hashed, mustResetPassword: true },
+      });
+      // Fire-and-forget — the response shouldn't depend on email delivery timing.
+      sendPasswordResetEmail({ to: user.email, name: user.name, tempPassword }).catch((e) =>
+        console.error("Password-reset email failed:", e.message)
+      );
+    }
+
+    return res.status(200).json({
+      message: "If an account exists for that email, a temporary password has been sent.",
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    return res.status(500).json({ error: "Internal Server Error", message: "Request failed." });
+  }
+};
+
 // ─── GET /api/auth/me ───────────────────────────
 // Returns the current authenticated user. `protect` re-fetches the user from the
 // DB on every request, so req.user carries the latest role / isActive — this lets
@@ -154,4 +190,4 @@ const getMe = async (req, res) => {
   return res.status(200).json({ user: req.user });
 };
 
-module.exports = { login, resetPassword, getMe };
+module.exports = { login, resetPassword, getMe, forgotPassword };
