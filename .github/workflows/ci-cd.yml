@@ -183,6 +183,7 @@ jobs:
           registryUrl: ghcr.io
           registryUsername: ${{ github.actor }}
           registryPassword: ${{ secrets.GHCR_TOKEN }}
+          targetPort: 5000
           environmentVariables: |
             DATABASE_URL=${{ env.SECURE_DATABASE_URL }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
