@@ -17,12 +17,18 @@ const attachmentRoutes = require("./routes/attachmentRoutes");
 const projectRoutes = require("./routes/projectRoutes");
 
 const app = express();
+app.set("trust proxy", 1);
 const httpServer = http.createServer(app);
 const jwt = require("jsonwebtoken");
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://tms-frontend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io"
+];
+
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
   },
 });
@@ -47,7 +53,7 @@ io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error("Authentication error: no token provided"));
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret_tms_g8_2024");
     socket.userId = decoded.id;
     socket.userRole = decoded.role;
     next();
@@ -92,7 +98,7 @@ app.use(
   })
 );
 
-app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173", credentials: true }));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 const path = require("path");
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

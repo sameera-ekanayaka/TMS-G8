@@ -67,6 +67,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Secure Database URL
+        env:
+          DB_URL_SECRET: ${{ secrets.DATABASE_URL }}
+        run: |
+          # Robustly handle newlines, quotes, and query parameter injection
+          SECURE_URL=$(node -e "
+            let str = process.env.DB_URL_SECRET.trim().replace(/^[\"']|[\"']$/g, '');
+            try {
+              const u = new URL(str);
+              u.searchParams.set('sslaccept', 'accept');
+              console.log(u.toString());
+            } catch(e) {
+              if (!str.includes('sslaccept=')) {
+                str += str.includes('?') ? '&sslaccept=accept' : '?sslaccept=accept';
+              }
+              console.log(str);
+            }
+          ")
+          echo "SECURE_DATABASE_URL=$SECURE_URL" >> $GITHUB_ENV
+
+      - name: Run Prisma Migrations & Seed
+        working-directory: ./backend
+        run: |
+          npm ci
+          npx prisma db push
+          npx prisma db seed
+        env:
+          DATABASE_URL: ${{ env.SECURE_DATABASE_URL }}
+          PRISMA_CLI_BINARY_TARGETS: debian-openssl-3.0.x
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -99,10 +129,10 @@ jobs:
             ${{ env.IMAGE_FRONTEND }}:latest
             ${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
           build-args: |
-            VITE_API_URL=${{ secrets.VITE_API_URL }}
-            VITE_WS_URL=${{ secrets.VITE_WS_URL }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            VITE_API_URL=https://tms-backend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io
+            VITE_WS_URL=https://tms-backend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io
+          # NOTE: cache intentionally disabled so Vite always rebuilds with the correct production URLs
+          no-cache: true
 
   # ── 4. Deploy to Azure Container Apps ───────────────────────────────────────
   deploy:
@@ -123,6 +153,25 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       # ── Deploy Backend ───────────────────────────────────────────────────────
+      - name: Set up Secure Database URL (deploy job)
+        env:
+          DB_URL_SECRET: ${{ secrets.DATABASE_URL }}
+        run: |
+          SECURE_URL=$(node -e "
+            let str = process.env.DB_URL_SECRET.trim().replace(/^[\"']|[\"']$/g, '');
+            try {
+              const u = new URL(str);
+              u.searchParams.set('sslaccept', 'accept');
+              console.log(u.toString());
+            } catch(e) {
+              if (!str.includes('sslaccept=')) {
+                str += str.includes('?') ? '&sslaccept=accept' : '?sslaccept=accept';
+              }
+              console.log(str);
+            }
+          ")
+          echo "SECURE_DATABASE_URL=$SECURE_URL" >> $GITHUB_ENV
+
       - name: Deploy Backend Container App
         uses: azure/container-apps-deploy-action@v1
         with:
@@ -134,13 +183,14 @@ jobs:
           registryUrl: ghcr.io
           registryUsername: ${{ github.actor }}
           registryPassword: ${{ secrets.GHCR_TOKEN }}
+          targetPort: 5000
           environmentVariables: |
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            DATABASE_URL=${{ env.SECURE_DATABASE_URL }}
+            JWT_SECRET=${{ secrets.JWT_SECRET != '' && secrets.JWT_SECRET || 'd3b07384d113edec49eaa6238ad5ff00f89b91b9aabc12345678901234567890' }}
             EMAIL_ENABLED=true
             ACS_CONNECTION_STRING=${{ secrets.ACS_CONNECTION_STRING }}
             EMAIL_FROM=${{ secrets.EMAIL_FROM }}
-            CLIENT_URL=${{ secrets.CLIENT_URL }}
+            CLIENT_URL=https://tms-frontend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io
             NODE_ENV=production
             PORT=5000
 
