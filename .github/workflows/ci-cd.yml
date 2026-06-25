@@ -206,3 +206,7 @@ jobs:
           registryUrl: ghcr.io
           registryUsername: ${{ github.actor }}
           registryPassword: ${{ secrets.GHCR_TOKEN }}
+          # nginx serves on port 80 — pin it so ingress never drifts to the
+          # backend's 5000 (which makes new revisions fail health checks and
+          # silently keep serving the old image).
+          targetPort: 80
