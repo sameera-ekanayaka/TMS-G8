@@ -130,8 +130,8 @@ jobs:
           build-args: |
             VITE_API_URL=https://tms-backend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io/api
             VITE_WS_URL=https://tms-backend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # NOTE: cache intentionally disabled so Vite always rebuilds with the correct production URLs
+          no-cache: true
 
   # ── 4. Deploy to Azure Container Apps ───────────────────────────────────────
   deploy:
@@ -152,6 +152,25 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       # ── Deploy Backend ───────────────────────────────────────────────────────
+      - name: Set up Secure Database URL (deploy job)
+        env:
+          DB_URL_SECRET: ${{ secrets.DATABASE_URL }}
+        run: |
+          SECURE_URL=$(node -e "
+            let str = process.env.DB_URL_SECRET.trim().replace(/^[\"']|[\"']$/g, '');
+            try {
+              const u = new URL(str);
+              u.searchParams.set('sslaccept', 'strict');
+              console.log(u.toString());
+            } catch(e) {
+              if (!str.includes('sslaccept=')) {
+                str += str.includes('?') ? '&sslaccept=strict' : '?sslaccept=strict';
+              }
+              console.log(str);
+            }
+          ")
+          echo "SECURE_DATABASE_URL=$SECURE_URL" >> $GITHUB_ENV
+
       - name: Deploy Backend Container App
         uses: azure/container-apps-deploy-action@v1
         with:
