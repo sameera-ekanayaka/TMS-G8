@@ -39,11 +39,11 @@ function PublicRoute({ children }) {
 
 function MainLayout({ children }) {
   return (
-    <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--color-surface-soft)' }}>
       <Sidebar />
-      <div className="flex-1 overflow-y-auto relative flex flex-col pl-24">
+      <div className="flex-1 min-w-0 overflow-y-auto ed-scroll flex flex-col">
         <Navbar />
-        <main className="p-4 flex-1 max-w-[1400px] w-full mx-auto">
+        <main className="flex-1 w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {children}
         </main>
       </div>

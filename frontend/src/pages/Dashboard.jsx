@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import Sidebar from '../components/common/Sidebar';
-import NotificationPanel from '../components/notification/NotificationPanel';
 import { getTasks, getUsers } from '../services/api';
 
 /* ── Stat Card — flat white canvas, hairline border ── */
@@ -56,17 +54,18 @@ const StatCard = ({ title, value, icon, accentColor }) => (
 );
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [stats, setStats] = useState({ total: 0, todo: 0, inProgress: 0, completed: 0 });
   const [tasks, setTasks] = useState([]);
   const [userCount, setUserCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [token]);
 
   const fetchData = async () => {
+    if (!token) return;
     try {
-      const taskRes = await getTasks();
+      const taskRes = await getTasks(token);
       const allTasks = taskRes.data.tasks;
       setTasks(allTasks.slice(0, 5));
       setStats({
@@ -76,7 +75,7 @@ const Dashboard = () => {
         completed: allTasks.filter(t => t.status === 'COMPLETED').length,
       });
       if (user?.role === 'ADMIN') {
-        const userRes = await getUsers();
+        const userRes = await getUsers(token);
         setUserCount(userRes.data.users.length);
       }
     } catch (error) {
@@ -106,21 +105,16 @@ const Dashboard = () => {
   const greeting = timeOfDay < 12 ? 'Morning' : timeOfDay < 17 ? 'Afternoon' : 'Evening';
 
   if (loading) return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--color-surface-soft)' }}>
-      <div style={{ width: '240px', background: 'var(--color-surface-dark)', minHeight: '100vh' }} />
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid var(--color-hairline)', borderTopColor: 'var(--color-primary)', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
-          <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-body-md)' }}>Loading dashboard…</p>
-        </div>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid var(--color-hairline)', borderTopColor: 'var(--color-primary)', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+        <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-body-md)' }}>Loading dashboard…</p>
       </div>
     </div>
   );
 
   return (
-    <div style={styles.container}>
-      <Sidebar />
-      <div style={styles.main}>
+    <div style={styles.page}>
 
         {/* ── Page Header ── */}
         <div style={styles.header}>
@@ -132,7 +126,6 @@ const Dashboard = () => {
               {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
-          <NotificationPanel />
         </div>
 
         {/* ── Stats Grid — white canvas cards ── */}
@@ -283,22 +276,14 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-      </div>
     </div>
   );
 };
 
 const styles = {
-  container: {
-    display: 'flex',
-    minHeight: '100vh',
-    background: 'var(--color-surface-soft)',
-  },
-  main: {
-    marginLeft: '240px',
-    flex: 1,
-    padding: 'var(--space-xl) var(--space-xxl)',  /* 32px 48px */
-    maxWidth: 'calc(100vw - 240px)',
+  page: {
+    width: '100%',
+    /* chrome (sidebar, navbar, padding, max-width) is provided by MainLayout */
   },
   header: {
     display: 'flex',

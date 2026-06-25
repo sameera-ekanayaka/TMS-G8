@@ -8,16 +8,9 @@ const TaskCard = ({ task, onEdit, onView, canManage = true }) => {
   const { user } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
 
-  const getPriorityStyles = (priority) => {
-    switch (priority) {
-      case 'High':
-        return { pill: 'bg-signature-coral text-white border-signature-coral' };
-      case 'Medium':
-        return { pill: 'bg-signature-yellow text-ink border-signature-yellow' };
-      case 'Low':
-      default:
-        return { pill: 'bg-signature-mint text-ink border-signature-mint' };
-    }
+  const priorityBadgeClass = (priority) => {
+    const map = { High: 'ed-badge-high', Medium: 'ed-badge-medium', Low: 'ed-badge-low' };
+    return `ed-badge ${map[priority] || 'ed-badge-low'}`;
   };
 
   const formatDate = (date) => {
@@ -37,17 +30,16 @@ const TaskCard = ({ task, onEdit, onView, canManage = true }) => {
     }
   };
 
-  const priorityStyles = getPriorityStyles(task.priority);
   const assignees = task.assignedUsers || [];
 
   return (
-    <div className={`bg-canvas rounded-md p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 relative group border border-borderstrong/40`}>
-      <div 
+    <div className="bg-canvas rounded-md p-4 shadow-sm hover:shadow-md transition-all duration-200 relative group border border-hairline">
+      <div
         className={`flex flex-col h-full ${onView ? 'cursor-pointer' : ''}`}
         onClick={() => onView && onView()}
       >
-        <div className="flex justify-between items-start mb-4">
-          <span className={`text-[11px] font-medium px-2 py-0.5 rounded-sm uppercase tracking-wide border ${priorityStyles.pill}`}>
+        <div className="flex justify-between items-start mb-3">
+          <span className={priorityBadgeClass(task.priority)}>
             {task.priority}
           </span>
           

@@ -119,21 +119,21 @@ const Tasks = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="ed-spinner" />
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto font-sans">
-      <div className="flex justify-between items-center mb-8 pb-4 border-b border-borderstrong/30">
+    <div>
+      <div className="flex justify-between items-center mb-6 pb-4 flex-wrap gap-3" style={{ borderBottom: '1px solid var(--color-hairline)' }}>
         <div>
-          <h1 className="text-[28px] font-normal text-ink tracking-tight">Tasks</h1>
-          <p className="text-[14px] text-muted mt-1 font-medium">
+          <h1 className="ed-page-title">Tasks</h1>
+          <p className="ed-page-subtitle">
             {urlProjectId ? 'Viewing tasks for selected project' : 'Manage all your tasks in one place'}
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           {urlProjectId && (
             <button
               onClick={() => {
@@ -141,7 +141,7 @@ const Tasks = () => {
                 newParams.delete('projectId');
                 setSearchParams(newParams);
               }}
-              className="bg-canvas border border-borderstrong text-ink px-4 py-2 rounded-md hover:bg-surface-strong transition-colors flex items-center gap-2 text-[14px] font-medium"
+              className="ed-btn ed-btn-secondary"
             >
               Clear Project Filter
             </button>
@@ -152,7 +152,7 @@ const Tasks = () => {
                 setEditingTask(null);
                 setShowTaskForm(true);
               }}
-              className="bg-primary text-white px-5 py-2.5 rounded-pill hover:bg-primary-active flex items-center gap-2 text-[14px] font-medium transition-colors"
+              className="ed-btn ed-btn-primary"
             >
               <Plus size={18} />
               New Task
@@ -162,40 +162,48 @@ const Tasks = () => {
       </div>
 
       {/* Search, Filters, and View Toggle */}
-      <div className="bg-canvas border border-borderstrong/40 rounded-lg p-5 mb-8">
-        <div className="flex flex-wrap gap-4">
+      <div className="ed-card-flat p-4 mb-6">
+        <div className="flex flex-wrap gap-3 items-center">
           <div className="flex-1 min-w-[200px]">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted" size={18} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2" size={17} style={{ color: 'var(--color-faint)' }} />
               <input
                 type="text"
                 placeholder="Search tasks..."
                 value={searchTerm}
                 onChange={handleSearch}
-                className="w-full pl-10 pr-4 py-2 border border-borderstrong rounded-md text-[14px] text-ink focus:outline-none focus:ring-1 focus:ring-link focus:border-link transition-colors"
+                className="ed-input"
+                style={{ paddingLeft: 38, height: 40 }}
               />
             </div>
           </div>
 
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-4 py-2 border border-borderstrong rounded-md text-[14px] font-medium text-ink hover:bg-surface-strong transition-colors"
+            className="ed-btn ed-btn-secondary"
           >
-            <Filter size={18} />
+            <Filter size={17} />
             Filters
           </button>
 
-          {/* View Toggle */}
-          <div className="flex border border-borderstrong rounded-md overflow-hidden">
+          {/* View Toggle — segmented control */}
+          <div
+            className="flex p-1 gap-1"
+            style={{ background: 'var(--color-surface-soft)', border: '1px solid var(--color-hairline)', borderRadius: 'var(--rounded-md)' }}
+          >
             {['table', 'board'].map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className={`px-4 py-2 capitalize flex items-center gap-2 text-[14px] font-medium transition-colors ${
-                  viewMode === mode
-                    ? 'bg-primary text-white'
-                    : 'bg-canvas text-ink hover:bg-surface-strong'
-                }`}
+                className="capitalize flex items-center gap-2 px-3 py-1.5 transition-colors"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  borderRadius: 'var(--rounded-sm)',
+                  background: viewMode === mode ? 'var(--color-canvas)' : 'transparent',
+                  color: viewMode === mode ? 'var(--color-ink)' : 'var(--color-muted)',
+                  boxShadow: viewMode === mode ? 'var(--shadow-sm)' : 'none',
+                }}
               >
                 {getViewIcon(mode)}
                 <span className="hidden sm:inline">{mode}</span>
@@ -205,13 +213,14 @@ const Tasks = () => {
         </div>
 
         {showFilters && (
-          <div className="flex flex-wrap gap-4 mt-5 pt-5 border-t border-borderstrong/30">
+          <div className="flex flex-wrap gap-4 mt-4 pt-4" style={{ borderTop: '1px solid var(--color-hairline)' }}>
             <div>
-              <label className="block text-[13px] font-medium text-muted mb-1.5">Status</label>
+              <label className="ed-label">Status</label>
               <select
                 value={filters.status || 'All'}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="border border-borderstrong rounded-md px-3 py-2 text-[14px] text-ink focus:outline-none focus:ring-1 focus:ring-link focus:border-link"
+                className="ed-select"
+                style={{ height: 40, width: 'auto', minWidth: 150 }}
               >
                 {statusOptions.map(option => (
                   <option key={option} value={option}>{option}</option>
@@ -220,11 +229,12 @@ const Tasks = () => {
             </div>
 
             <div>
-              <label className="block text-[13px] font-medium text-muted mb-1.5">Priority</label>
+              <label className="ed-label">Priority</label>
               <select
                 value={filters.priority || 'All'}
                 onChange={(e) => handleFilterChange('priority', e.target.value)}
-                className="border border-borderstrong rounded-md px-3 py-2 text-[14px] text-ink focus:outline-none focus:ring-1 focus:ring-link focus:border-link"
+                className="ed-select"
+                style={{ height: 40, width: 'auto', minWidth: 150 }}
               >
                 {priorityOptions.map(option => (
                   <option key={option} value={option}>{option}</option>
@@ -233,11 +243,12 @@ const Tasks = () => {
             </div>
 
             <div>
-              <label className="block text-[13px] font-medium text-muted mb-1.5">Sort By</label>
+              <label className="ed-label">Sort By</label>
               <select
                 value={filters.sortBy !== undefined ? filters.sortBy : 'dueDate'}
                 onChange={(e) => handleSortChange('sortBy', e.target.value)}
-                className="border border-borderstrong rounded-md px-3 py-2 text-[14px] text-ink focus:outline-none focus:ring-1 focus:ring-link focus:border-link"
+                className="ed-select"
+                style={{ height: 40, width: 'auto', minWidth: 150 }}
               >
                 {sortOptions.map(option => (
                   <option key={option.value} value={option.value}>{option.label}</option>
@@ -248,7 +259,7 @@ const Tasks = () => {
             <div className="flex items-end">
               <button
                 onClick={handleResetFilters}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                className="ed-btn ed-btn-ghost"
               >
                 Reset Filters
               </button>
@@ -259,14 +270,16 @@ const Tasks = () => {
 
       {/* Task Display based on view mode */}
       {filteredTasks.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">📋</div>
-          <p className="text-gray-500">No tasks found</p>
+        <div className="ed-card-flat text-center" style={{ padding: '64px 24px' }}>
+          <p style={{ fontSize: 32, marginBottom: 8 }}>☰</p>
+          <p style={{ color: 'var(--color-muted)', fontSize: 14 }}>No tasks found</p>
           {canManage && (
             <button
               onClick={() => setShowTaskForm(true)}
-              className="mt-4 text-blue-500 hover:underline"
+              className="ed-btn ed-btn-primary"
+              style={{ marginTop: 16 }}
             >
+              <Plus size={16} />
               Create your first task
             </button>
           )}
@@ -298,39 +311,61 @@ const Tasks = () => {
                 }
               }}
             >
-              <div className="flex flex-col md:flex-row gap-6 overflow-x-auto pb-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5">
                 {['To Do', 'In Progress', 'Completed'].map((status) => {
                   const columnTasks = filteredTasks.filter((task) => task.status === status);
-                  
-                  // Modern colorful styles for columns
-                  const getColumnStyles = (s) => {
-                    switch(s) {
-                      case 'To Do': return { bg: 'bg-[#F4F7FE]', accent: 'bg-[#4318FF]', text: 'text-[#4318FF]' };
-                      case 'In Progress': return { bg: 'bg-[#FFF9E6]', accent: 'bg-[#FFB547]', text: 'text-[#FFB547]' };
-                      case 'Completed': return { bg: 'bg-[#E9FAF1]', accent: 'bg-[#05CD99]', text: 'text-[#05CD99]' };
-                      default: return { bg: 'bg-gray-50', accent: 'bg-gray-400', text: 'text-gray-800' };
-                    }
+
+                  const accentMap = {
+                    'To Do': 'var(--color-faint)',
+                    'In Progress': 'var(--color-info)',
+                    'Completed': 'var(--color-success)',
                   };
-                  const styles = getColumnStyles(status);
+                  const accent = accentMap[status] || 'var(--color-faint)';
 
                   return (
                   <Droppable key={status} droppableId={status}>
-                    {(provided) => (
+                    {(provided, snapshot) => (
                       <div
                         {...provided.droppableProps}
                         ref={provided.innerRef}
-                        className={`flex-1 min-w-[320px] ${styles.bg} rounded-[32px] p-5 min-h-[500px] border-4 border-white shadow-sm`}
+                        className="flex flex-col min-h-[500px]"
+                        style={{
+                          background: 'var(--color-surface-soft)',
+                          border: '1px solid var(--color-hairline)',
+                          borderRadius: 'var(--rounded-md)',
+                          overflow: 'hidden',
+                        }}
                       >
-                        <div className="flex items-center justify-between mb-5 px-1">
+                        <div
+                          className="flex items-center justify-between px-4 py-3 shrink-0"
+                          style={{ borderBottom: '1px solid var(--color-hairline)' }}
+                        >
                           <div className="flex items-center gap-2">
-                            <div className={`w-2.5 h-2.5 rounded-full ${styles.accent} shadow-sm`}></div>
-                            <h3 className="font-bold text-[16px] text-gray-800 tracking-tight">{status}</h3>
+                            <span className="ed-dot" style={{ background: accent }} />
+                            <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-ink)' }}>{status}</h3>
                           </div>
-                          <span className={`bg-white shadow-sm ${styles.text} text-[11px] font-extrabold px-3 py-1 rounded-full`}>
-                            {columnTasks.length} {columnTasks.length === 1 ? 'Task' : 'Tasks'}
+                          <span
+                            style={{
+                              fontSize: 12, fontWeight: 600, color: 'var(--color-muted)',
+                              background: 'var(--color-canvas)', border: '1px solid var(--color-hairline)',
+                              borderRadius: 'var(--rounded-full)', padding: '1px 9px', minWidth: 24, textAlign: 'center',
+                            }}
+                          >
+                            {columnTasks.length}
                           </span>
                         </div>
-                        <div className="space-y-4 min-h-[50px]">
+                        <div
+                          className="flex-1 p-3 space-y-3 ed-scroll transition-colors"
+                          style={{ background: snapshot.isDraggingOver ? 'var(--color-surface-strong)' : 'transparent' }}
+                        >
+                          {columnTasks.length === 0 && !snapshot.isDraggingOver && (
+                            <div
+                              className="flex items-center justify-center text-center py-10 px-3"
+                              style={{ border: '1px dashed var(--color-hairline-strong)', borderRadius: 'var(--rounded-md)', color: 'var(--color-faint)', fontSize: 13 }}
+                            >
+                              No tasks
+                            </div>
+                          )}
                           {columnTasks
                             .map((task, index) => (
                               <Draggable key={task.id} draggableId={task.id.toString()} index={index}>

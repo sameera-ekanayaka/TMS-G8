@@ -1,0 +1,274 @@
+/*
+ * Editorial design system — tokens + shared component classes
+ * --------------------------------------------------------------------------
+ * Derived from design.md (Airtable editorial language), adapted pragmatically
+ * for a task-management app: white canvas, dark-ink type at modest weights,
+ * near-black primary CTAs, hairline borders, a strict spacing/radius scale,
+ * blue reserved for links, and a small set of pragmatic status colors.
+ *
+ * Everything visual in the app should reference these tokens or the component
+ * classes below so the whole UI stays coherent. No functional behaviour lives
+ * here — styling only.
+ */
+
+:root {
+  /* ── Brand / ink ── */
+  --color-primary: #181d26;
+  --color-primary-active: #0d1218;
+  --color-ink: #181d26;
+  --color-body: #333840;
+  --color-muted: #6b7280;
+  --color-faint: #9297a0;
+
+  /* ── Surfaces ── */
+  --color-canvas: #ffffff;
+  --color-surface-soft: #f8fafc;
+  --color-surface-strong: #eef1f5;
+  --color-surface-dark: #181d26;
+  --color-surface-dark-elevated: #1d1f25;
+  --color-hairline: #e6e8ec;
+  --color-hairline-strong: #d4d7dd;
+  --color-on-primary: #ffffff;
+  --color-on-dark: #ffffff;
+
+  /* ── Semantic / status (pragmatic app additions) ── */
+  --color-link: #1b61c9;
+  --color-link-active: #1a3866;
+  --color-info: #254fad;
+  --color-info-soft: #eef3ff;
+  --color-success: #1d7d46;
+  --color-success-soft: #ecfdf3;
+  --color-warning: #b45309;
+  --color-warning-soft: #fffaeb;
+  --color-danger: #b42318;
+  --color-danger-soft: #fef3f2;
+
+  /* ── Signature accent surfaces (used sparingly, as voltage) ── */
+  --color-sig-coral: #aa2d00;
+  --color-sig-forest: #0a2e0e;
+  --color-sig-cream: #f5e9d4;
+
+  /* ── Typography ── */
+  --font-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --text-display-lg: 40px;
+  --text-display-md: 32px;
+  --text-title-lg: 24px;
+  --text-title-md: 20px;
+  --text-title-sm: 18px;
+  --text-label-md: 16px;
+  --text-body-md: 14px;
+  --text-caption: 13px;
+  --text-micro: 11px;
+
+  /* ── Spacing scale (4-multiples) ── */
+  --space-xxs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-xxl: 48px;
+
+  /* ── Radii ── */
+  --rounded-xs: 2px;
+  --rounded-sm: 6px;
+  --rounded-md: 10px;
+  --rounded-lg: 12px;
+  --rounded-full: 9999px;
+
+  /* ── Elevation (minimal — color-block first, shadow second) ── */
+  --shadow-sm: 0 1px 2px rgba(24, 29, 38, 0.06);
+  --shadow-md: 0 4px 14px rgba(24, 29, 38, 0.08);
+  --shadow-lg: 0 12px 32px rgba(24, 29, 38, 0.12);
+
+  /* ── App layout ── */
+  --sidebar-w: 248px;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+ * Base
+ * ════════════════════════════════════════════════════════════════════ */
+body {
+  font-family: var(--font-base);
+  color: var(--color-body);
+  background: var(--color-surface-soft);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+ * Buttons
+ * ════════════════════════════════════════════════════════════════════ */
+.ed-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  font-family: var(--font-base);
+  font-size: var(--text-body-md);
+  font-weight: 500;
+  line-height: 1;
+  border-radius: var(--rounded-lg);
+  padding: 0 var(--space-md);
+  height: 40px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.ed-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ed-btn-primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.ed-btn-primary:hover:not(:disabled) { background: var(--color-primary-active); }
+
+.ed-btn-secondary {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  border-color: var(--color-hairline-strong);
+}
+.ed-btn-secondary:hover:not(:disabled) { background: var(--color-surface-soft); }
+
+.ed-btn-ghost {
+  background: transparent;
+  color: var(--color-body);
+}
+.ed-btn-ghost:hover:not(:disabled) { background: var(--color-surface-strong); }
+
+.ed-btn-danger {
+  background: var(--color-canvas);
+  color: var(--color-danger);
+  border-color: var(--color-hairline-strong);
+}
+.ed-btn-danger:hover:not(:disabled) { background: var(--color-danger-soft); border-color: var(--color-danger); }
+
+.ed-btn-sm { height: 32px; font-size: var(--text-caption); padding: 0 var(--space-sm); border-radius: var(--rounded-md); }
+.ed-btn-icon { width: 40px; height: 40px; padding: 0; border-radius: var(--rounded-md); }
+
+/* ════════════════════════════════════════════════════════════════════
+ * Inputs
+ * ════════════════════════════════════════════════════════════════════ */
+.ed-input,
+.ed-select,
+.ed-textarea {
+  width: 100%;
+  font-family: var(--font-base);
+  font-size: var(--text-body-md);
+  color: var(--color-ink);
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline-strong);
+  border-radius: var(--rounded-sm);
+  padding: 0 var(--space-md);
+  height: 44px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ed-textarea { height: auto; padding: var(--space-sm) var(--space-md); min-height: 96px; resize: vertical; }
+.ed-input::placeholder, .ed-textarea::placeholder { color: var(--color-faint); }
+.ed-input:focus,
+.ed-select:focus,
+.ed-textarea:focus {
+  outline: none;
+  border-color: var(--color-info);
+  box-shadow: 0 0 0 3px rgba(37, 79, 173, 0.12);
+}
+.ed-label {
+  display: block;
+  font-size: var(--text-caption);
+  font-weight: 500;
+  color: var(--color-body);
+  margin-bottom: var(--space-xs);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+ * Cards & surfaces
+ * ════════════════════════════════════════════════════════════════════ */
+.ed-card {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--rounded-md);
+  padding: var(--space-xl);
+}
+.ed-card-flat {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--rounded-md);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+ * Badges (status / priority)
+ * ════════════════════════════════════════════════════════════════════ */
+.ed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-micro);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: var(--rounded-full);
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.ed-badge-high     { background: var(--color-danger-soft);  color: var(--color-danger);  }
+.ed-badge-medium   { background: var(--color-warning-soft); color: var(--color-warning); }
+.ed-badge-low      { background: var(--color-success-soft); color: var(--color-success); }
+.ed-badge-todo     { background: var(--color-surface-strong); color: var(--color-muted); }
+.ed-badge-progress { background: var(--color-info-soft);    color: var(--color-info);    }
+.ed-badge-done     { background: var(--color-success-soft); color: var(--color-success); }
+
+/* small status dot */
+.ed-dot { width: 6px; height: 6px; border-radius: var(--rounded-full); display: inline-block; }
+
+/* ════════════════════════════════════════════════════════════════════
+ * Utilities
+ * ════════════════════════════════════════════════════════════════════ */
+.ed-page-title {
+  font-size: var(--text-title-lg);
+  font-weight: 500;
+  color: var(--color-ink);
+  line-height: 1.3;
+  margin: 0;
+}
+.ed-page-subtitle {
+  font-size: var(--text-body-md);
+  color: var(--color-muted);
+  margin: 4px 0 0;
+}
+.ed-hairline { border-color: var(--color-hairline) !important; }
+.ed-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+  margin-bottom: 8px;
+}
+
+/* spinner used across pages */
+@keyframes ed-spin { to { transform: rotate(360deg); } }
+.ed-spinner {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--color-hairline);
+  border-top-color: var(--color-primary);
+  animation: ed-spin 0.7s linear infinite;
+}
+
+/* sidebar nav items */
+.ed-nav-idle:hover { background: var(--color-surface-soft); }
+.ed-nav-active { background: var(--color-surface-soft); }
+.ed-logout:hover { background: var(--color-danger-soft); }
+
+/* navbar bell + notification rows */
+.ed-bell:hover { background: var(--color-surface-soft); }
+.ed-notif:hover { background: var(--color-surface-soft); }
+
+/* thin scrollbar for boards/panels */
+.ed-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.ed-scroll::-webkit-scrollbar-thumb { background: var(--color-hairline-strong); border-radius: var(--rounded-full); }
+.ed-scroll::-webkit-scrollbar-track { background: transparent; }
