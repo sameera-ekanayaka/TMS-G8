@@ -76,11 +76,11 @@ jobs:
             let str = process.env.DB_URL_SECRET.trim().replace(/^[\"']|[\"']$/g, '');
             try {
               const u = new URL(str);
-              u.searchParams.set('sslaccept', 'strict');
+              u.searchParams.set('sslaccept', 'accept');
               console.log(u.toString());
             } catch(e) {
               if (!str.includes('sslaccept=')) {
-                str += str.includes('?') ? '&sslaccept=strict' : '?sslaccept=strict';
+                str += str.includes('?') ? '&sslaccept=accept' : '?sslaccept=accept';
               }
               console.log(str);
             }
@@ -161,11 +161,11 @@ jobs:
             let str = process.env.DB_URL_SECRET.trim().replace(/^[\"']|[\"']$/g, '');
             try {
               const u = new URL(str);
-              u.searchParams.set('sslaccept', 'strict');
+              u.searchParams.set('sslaccept', 'accept');
               console.log(u.toString());
             } catch(e) {
               if (!str.includes('sslaccept=')) {
-                str += str.includes('?') ? '&sslaccept=strict' : '?sslaccept=strict';
+                str += str.includes('?') ? '&sslaccept=accept' : '?sslaccept=accept';
               }
               console.log(str);
             }

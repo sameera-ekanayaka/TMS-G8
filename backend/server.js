@@ -17,6 +17,7 @@ const attachmentRoutes = require("./routes/attachmentRoutes");
 const projectRoutes = require("./routes/projectRoutes");
 
 const app = express();
+app.set("trust proxy", 1);
 const httpServer = http.createServer(app);
 const jwt = require("jsonwebtoken");
 
