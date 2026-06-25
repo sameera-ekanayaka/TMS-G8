@@ -1,4 +1,8 @@
-FROM node:18-slim
+FROM node:20-slim
+
+# Node 20 exposes the Web Crypto API (globalThis.crypto) as a global, which the
+# @azure/communication-email SDK requires to sign requests. Node 18 did not,
+# causing onboarding emails to fail with "crypto is not defined".
 
 # Install required system libs for Prisma engine (OpenSSL on Debian slim)
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*

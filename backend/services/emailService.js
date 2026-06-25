@@ -90,7 +90,12 @@ const sendOnboardingEmail = async ({ to, name, email, tempPassword, role }) => {
     </div>
   `;
 
-  const senderAddress = process.env.EMAIL_FROM || "DoNotReply@c858cc8f-5d2a-4984-8fb5-f512aefb38e4.azurecomm.net";
+  // ACS senderAddress must be a bare verified address — not an RFC-5322
+  // "Display Name <addr>" string. Extract the address from any <…> wrapper and
+  // trim stray whitespace/newlines (e.g. a trailing newline from a secret value).
+  const rawSender = process.env.EMAIL_FROM || "DoNotReply@c858cc8f-5d2a-4984-8fb5-f512aefb38e4.azurecomm.net";
+  const senderMatch = rawSender.match(/<([^>]+)>/);
+  const senderAddress = (senderMatch ? senderMatch[1] : rawSender).trim();
 
   const emailMessage = {
     senderAddress: senderAddress,
