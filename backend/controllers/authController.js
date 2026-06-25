@@ -53,7 +53,7 @@ const login = async (req, res) => {
     // Sign JWT — payload contains id, email, role
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || "fallback_secret_tms_g8_2024",
+      process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
     );
 
