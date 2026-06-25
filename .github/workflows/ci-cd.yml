@@ -91,7 +91,7 @@ jobs:
         working-directory: ./backend
         run: |
           npm ci
-          npx prisma migrate deploy
+          npx prisma db push
           npx prisma db seed
         env:
           DATABASE_URL: ${{ env.SECURE_DATABASE_URL }}
