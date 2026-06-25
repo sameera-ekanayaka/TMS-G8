@@ -54,18 +54,10 @@ export const SocketProvider = ({ children }) => {
       setNotifications(prev => [data, ...prev]);
     });
 
-    // Listen for task events
-    newSocket.on('taskCreated', (data) => {
-      console.log('📝 Task created:', data);
-    });
-
-    newSocket.on('taskUpdated', (data) => {
-      console.log('📝 Task updated:', data);
-    });
-
-    newSocket.on('taskDeleted', (data) => {
-      console.log('📝 Task deleted:', data);
-    });
+    // NOTE: task events (taskCreated/taskUpdated/taskDeleted/task_status_changed)
+    // are handled in TaskContext, which patches the shared task state. They were
+    // previously also subscribed here as console.log-only no-ops — removed to
+    // avoid dead/duplicate listeners.
 
     setSocket(newSocket);
 

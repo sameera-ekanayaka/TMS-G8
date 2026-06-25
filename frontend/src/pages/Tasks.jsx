@@ -26,9 +26,15 @@ const Tasks = () => {
 
   const statusOptions = ['All', 'To Do', 'In Progress', 'Completed'];
   const priorityOptions = ['All', 'Low', 'Medium', 'High'];
+  // Values must match the backend's validSortFields in taskController.getTasks
+  // (createdAt, dueDate, priority, status, project) — 'projectId' was invalid
+  // and silently fell back to createdAt.
   const sortOptions = [
-    { value: '', label: 'None' },
-    { value: 'projectId', label: 'Project' },
+    { value: '', label: 'Default' },
+    { value: 'dueDate', label: 'Due Date' },
+    { value: 'priority', label: 'Priority' },
+    { value: 'status', label: 'Status' },
+    { value: 'project', label: 'Project' },
   ];
 
   // Real-time task updates via Socket.io

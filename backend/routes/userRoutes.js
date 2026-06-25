@@ -38,7 +38,9 @@ router.use(protect);
  *       403:
  *         description: Not authorized (Admin only)
  */
-router.get("/", authorizeRoles("ADMIN", "PROJECT_MANAGER", "COLLABORATOR"), getAllUsers);
+// Admins manage users; Project Managers need the roster to assign tasks.
+// Collaborators do not — they cannot enumerate the user directory.
+router.get("/", authorizeRoles("ADMIN", "PROJECT_MANAGER"), getAllUsers);
 
 /**
  * @swagger
@@ -58,7 +60,7 @@ router.get("/", authorizeRoles("ADMIN", "PROJECT_MANAGER", "COLLABORATOR"), getA
  *       404:
  *         description: User not found
  */
-router.get("/:id", authorizeRoles("ADMIN", "PROJECT_MANAGER", "COLLABORATOR"), getUserById);
+router.get("/:id", authorizeRoles("ADMIN", "PROJECT_MANAGER"), getUserById);
 
 /**
  * @swagger

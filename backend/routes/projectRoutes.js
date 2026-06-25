@@ -11,10 +11,14 @@ const {
   updateProject,
   deleteProject,
 } = require("../controllers/projectController");
-const { protect } = require("../middleware/authMiddleware");
+const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
 // All project routes require authentication
 router.use(protect);
+
+// Only Admins and Project Managers may create/modify/delete projects.
+// (Collaborators can still read projects to navigate to their tasks.)
+const canManageProjects = authorizeRoles("ADMIN", "PROJECT_MANAGER");
 
 /**
  * @swagger
@@ -55,7 +59,7 @@ router.use(protect);
  *       500:
  *         description: Internal server error
  */
-router.post("/", createProject);
+router.post("/", canManageProjects, createProject);
 
 /**
  * @swagger
@@ -139,7 +143,7 @@ router.get("/:id", getProjectById);
  *       500:
  *         description: Internal server error
  */
-router.put("/:id", updateProject);
+router.put("/:id", canManageProjects, updateProject);
 
 /**
  * @swagger
@@ -165,6 +169,6 @@ router.put("/:id", updateProject);
  *       500:
  *         description: Internal server error
  */
-router.delete("/:id", deleteProject);
+router.delete("/:id", canManageProjects, deleteProject);
 
 module.exports = router;
