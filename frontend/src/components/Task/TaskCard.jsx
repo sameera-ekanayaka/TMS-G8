@@ -131,7 +131,7 @@ const TaskCard = ({ task, onEdit, onView, canManage = true }) => {
              <div className="flex -space-x-1.5">
                {assignees.length > 0 ? (
                  assignees.slice(0, 3).map((user, i) => (
-                   <div key={user.id} className="w-6 h-6 rounded-pill bg-primary flex items-center justify-center text-[10px] font-medium text-white ring-2 ring-canvas" title={user.name}>
+                   <div key={user.id} className="w-6 h-6 rounded-pill bg-primary flex items-center justify-center text-[10px] font-medium text-on-primary ring-2 ring-canvas" title={user.name}>
                      {user.name.charAt(0).toUpperCase()}
                    </div>
                  ))

@@ -1,5 +1,11 @@
 /** @type {import('tailwindcss').Config} */
+// Colors reference the channel tokens (--c-*) defined in src/styles/design-tokens.css,
+// so every utility class (bg-canvas, text-ink, bg-primary/20, …) flips with the
+// .dark theme automatically. The `/ <alpha-value>` form keeps opacity modifiers working.
+const tw = (channel) => `rgb(var(${channel}) / <alpha-value>)`;
+
 export default {
+  darkMode: "class",
   content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
     extend: {
@@ -8,44 +14,44 @@ export default {
       },
       colors: {
         primary: {
-          DEFAULT: "#181d26",
-          active: "#0d1218",
+          DEFAULT: tw("--c-primary"),
+          active: tw("--c-primary-active"),
         },
-        ink: "#181d26",
-        body: "#333840",
-        muted: "#41454d",
-        hairline: "#dddddd",
-        borderstrong: "#9297a0",
-        canvas: "#ffffff",
+        ink: tw("--c-ink"),
+        body: tw("--c-body"),
+        muted: tw("--c-muted"),
+        hairline: tw("--c-hairline"),
+        borderstrong: tw("--c-hairline-strong"),
+        canvas: tw("--c-canvas"),
         surface: {
-          soft: "#f8fafc",
-          strong: "#e0e2e6",
-          dark: "#181d26",
-          "dark-elevated": "#1d1f25",
+          soft: tw("--c-surface-soft"),
+          strong: tw("--c-surface-strong"),
+          dark: tw("--c-surface-dark"),
+          "dark-elevated": tw("--c-surface-dark-elevated"),
         },
         signature: {
-          coral: "#aa2d00",
-          forest: "#0a2e0e",
-          cream: "#f5e9d4",
+          coral: tw("--c-sig-coral"),
+          forest: tw("--c-sig-forest"),
+          cream: tw("--c-sig-cream"),
           peach: "#fcab79",
           mint: "#a8d8c4",
           yellow: "#f4d35e",
           mustard: "#d9a441",
         },
         on: {
-          primary: "#ffffff",
-          dark: "#ffffff",
+          primary: tw("--c-on-primary"),
+          dark: tw("--c-on-dark"),
         },
         link: {
-          DEFAULT: "#1b61c9",
-          active: "#1a3866",
+          DEFAULT: tw("--c-link"),
+          active: tw("--c-link-active"),
         },
         info: {
-          DEFAULT: "#254fad",
+          DEFAULT: tw("--c-info"),
           border: "#458fff",
         },
         success: {
-          DEFAULT: "#006400",
+          DEFAULT: tw("--c-success"),
           border: "#39bf45",
         },
       },

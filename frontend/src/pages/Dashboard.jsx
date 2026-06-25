@@ -239,7 +239,7 @@ const Dashboard = () => {
 
           {/* Role Card — signature-dark treatment (design.md: hero-card-dark) */}
           <div style={{ ...styles.card, background: 'var(--color-surface-dark)', border: 'none' }}>
-            <h2 style={{ ...styles.cardTitle, color: 'var(--color-on-primary)', fontWeight: '400' }}>Your Role</h2>
+            <h2 style={{ ...styles.cardTitle, color: 'var(--color-on-dark)', fontWeight: '400' }}>Your Role</h2>
             <div style={{ textAlign: 'center', padding: 'var(--space-xl) 0' }}>
               <div style={{
                 width: '60px', height: '60px',
@@ -251,7 +251,7 @@ const Dashboard = () => {
               }}>
                 {user?.role === 'ADMIN' ? '◈' : user?.role === 'PROJECT_MANAGER' ? '◎' : '◉'}
               </div>
-              <p style={{ color: 'var(--color-on-primary)', fontSize: 'var(--text-title-md)', fontWeight: '400', margin: '0 0 var(--space-xs)' }}>
+              <p style={{ color: 'var(--color-on-dark)', fontSize: 'var(--text-title-md)', fontWeight: '400', margin: '0 0 var(--space-xs)' }}>
                 {user?.role?.replace('_', ' ')}
               </p>
               <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '13px', lineHeight: '1.5', margin: 0 }}>
@@ -269,7 +269,7 @@ const Dashboard = () => {
                 ...(user?.role === 'ADMIN' ? [{ label: 'Users', value: userCount }] : []),
               ].map((s, i) => (
                 <div key={i} style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 'var(--rounded-md)', padding: 'var(--space-sm)', textAlign: 'center' }}>
-                  <p style={{ color: 'var(--color-on-primary)', fontSize: '18px', fontWeight: '400', margin: '0 0 3px' }}>{s.value}</p>
+                  <p style={{ color: 'var(--color-on-dark)', fontSize: '18px', fontWeight: '400', margin: '0 0 3px' }}>{s.value}</p>
                   <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', margin: 0, fontWeight: '400' }}>{s.label}</p>
                 </div>
               ))}

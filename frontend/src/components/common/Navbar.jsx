@@ -1,7 +1,8 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import NotificationPanel from '../notification/NotificationPanel';
-import { User } from 'lucide-react';
+import { User, Sun, Moon } from 'lucide-react';
 
 const formatRole = (role) =>
   (role || 'User')
@@ -11,6 +12,7 @@ const formatRole = (role) =>
 
 const Navbar = () => {
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <header
@@ -21,7 +23,16 @@ const Navbar = () => {
         Welcome, {user?.name || 'User'}
       </h2>
 
-      <div className="flex items-center gap-3 sm:gap-4">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <button
+          onClick={toggleTheme}
+          className="ed-bell flex items-center justify-center transition-colors"
+          style={{ width: 40, height: 40, borderRadius: 'var(--rounded-md)', color: 'var(--color-body)' }}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label="Toggle color theme"
+        >
+          {theme === 'dark' ? <Sun size={19} /> : <Moon size={19} />}
+        </button>
         <NotificationPanel />
         <div
           className="flex items-center gap-2 px-3 py-1.5"
