@@ -124,16 +124,16 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <SocketProvider>
-          <TaskProvider>
-            <ToastProvider>
+          <ToastProvider>
+            <TaskProvider>
               <BrowserRouter>
                 <Toaster position="top-right" />
                 <Suspense fallback={<PageLoader />}>
                   <AppRoutes />
                 </Suspense>
               </BrowserRouter>
-            </ToastProvider>
-          </TaskProvider>
+            </TaskProvider>
+          </ToastProvider>
         </SocketProvider>
       </AuthProvider>
     </ThemeProvider>
