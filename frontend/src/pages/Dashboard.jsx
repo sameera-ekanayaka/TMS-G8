@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getTasks, getUsers } from '../services/api';
+import { useTasks } from '../context/TaskContext';
+import { getUsers } from '../services/api';
 
 /* ── Stat Card — flat white canvas, hairline border ── */
 const StatCard = ({ title, value, icon, accentColor }) => (
@@ -55,56 +56,62 @@ const StatCard = ({ title, value, icon, accentColor }) => (
 
 const Dashboard = () => {
   const { user, token } = useAuth();
-  const [stats, setStats] = useState({ total: 0, todo: 0, inProgress: 0, completed: 0 });
-  const [tasks, setTasks] = useState([]);
+  const { tasks: contextTasks, loading: tasksLoading } = useTasks();
+  
   const [userCount, setUserCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(user?.role === 'ADMIN');
 
-  useEffect(() => { fetchData(); }, [token]);
-
-  const fetchData = async () => {
-    if (!token) return;
-    try {
-      const taskRes = await getTasks(token);
-      const allTasks = taskRes.data.tasks;
-      setTasks(allTasks.slice(0, 5));
-      setStats({
-        total: allTasks.length,
-        todo: allTasks.filter(t => t.status === 'TODO').length,
-        inProgress: allTasks.filter(t => t.status === 'IN_PROGRESS').length,
-        completed: allTasks.filter(t => t.status === 'COMPLETED').length,
-      });
-      if (user?.role === 'ADMIN') {
-        const userRes = await getUsers(token);
-        setUserCount(userRes.data.users.length);
+  useEffect(() => {
+    const fetchAdminData = async () => {
+      if (token && user?.role === 'ADMIN') {
+        try {
+          const userRes = await getUsers(token);
+          setUserCount(userRes.data.users.length);
+        } catch (error) {
+          console.error('Failed to fetch users');
+        } finally {
+          setUsersLoading(false);
+        }
+      } else {
+        setUsersLoading(false);
       }
-    } catch (error) {
-      console.error('Failed to fetch data');
-    } finally {
-      setLoading(false);
-    }
+    };
+    fetchAdminData();
+  }, [token, user?.role]);
+
+  // Derive stats from the globally synced tasks
+  const stats = {
+    total: contextTasks.length,
+    todo: contextTasks.filter(t => t.status === 'To Do' || t.status === 'TODO').length,
+    inProgress: contextTasks.filter(t => t.status === 'In Progress' || t.status === 'IN_PROGRESS').length,
+    completed: contextTasks.filter(t => t.status === 'Completed' || t.status === 'COMPLETED').length,
   };
+  
+  const recentTasks = contextTasks.slice(0, 5);
+  const isLoading = tasksLoading || usersLoading;
 
   const completionRate = stats.total > 0
     ? Math.round((stats.completed / stats.total) * 100)
     : 0;
 
   const getPriorityStyle = (priority) => {
-    if (priority === 'HIGH') return { bg: '#fff5f5', color: 'var(--color-danger)', dot: 'var(--color-danger)' };
-    if (priority === 'MEDIUM') return { bg: '#fffbeb', color: 'var(--color-warning)', dot: 'var(--color-warning)' };
+    const p = (priority || '').toUpperCase();
+    if (p === 'HIGH') return { bg: '#fff5f5', color: 'var(--color-danger)', dot: 'var(--color-danger)' };
+    if (p === 'MEDIUM') return { bg: '#fffbeb', color: 'var(--color-warning)', dot: 'var(--color-warning)' };
     return { bg: '#f0fdf4', color: 'var(--color-success)', dot: 'var(--color-success)' };
   };
 
   const getStatusStyle = (status) => {
-    if (status === 'COMPLETED') return { bg: '#f0fdf4', color: 'var(--color-success)' };
-    if (status === 'IN_PROGRESS') return { bg: '#eff6ff', color: 'var(--color-info)' };
+    const s = (status || '').toUpperCase();
+    if (s === 'COMPLETED') return { bg: '#f0fdf4', color: 'var(--color-success)' };
+    if (s === 'IN_PROGRESS' || s === 'IN PROGRESS') return { bg: '#eff6ff', color: 'var(--color-info)' };
     return { bg: 'var(--color-surface-soft)', color: 'var(--color-muted)' };
   };
 
   const timeOfDay = new Date().getHours();
   const greeting = timeOfDay < 12 ? 'Morning' : timeOfDay < 17 ? 'Afternoon' : 'Evening';
 
-  if (loading) return (
+  if (isLoading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid var(--color-hairline)', borderTopColor: 'var(--color-primary)', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
@@ -202,13 +209,13 @@ const Dashboard = () => {
               </button>
             </div>
 
-            {tasks.length === 0 ? (
+            {recentTasks.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 'var(--space-xxl) var(--space-lg)', color: 'var(--color-muted)' }}>
                 <p style={{ fontSize: '28px', marginBottom: '8px' }}>☰</p>
                 <p style={{ fontSize: 'var(--text-body-md)' }}>No tasks yet</p>
               </div>
             ) : (
-              tasks.map(task => {
+              recentTasks.map(task => {
                 const ps = getPriorityStyle(task.priority);
                 const ss = getStatusStyle(task.status);
                 return (
