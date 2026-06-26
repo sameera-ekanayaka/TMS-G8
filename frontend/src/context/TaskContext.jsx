@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getTasks, createTask, updateTask, deleteTask, updateTaskStatus } from '../services/api';
 import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
+import { useToast } from './ToastContext';
 
 const TaskContext = createContext();
 
@@ -14,7 +15,8 @@ export const TaskProvider = ({ children }) => {
   const [filters, setFilters] = useState({ status: '', priority: '', sortBy: 'dueDate', order: 'asc' });
   const { socket } = useSocket();
 
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const { showToast } = useToast();
 
   const backendToFrontendPriority = {
     LOW: 'Low',
@@ -140,18 +142,33 @@ export const TaskProvider = ({ children }) => {
   // Update task status
   const changeTaskStatus = async (taskId, status) => {
     if (!token) return;
-    
+
+    // Guard: collaborators can only change status of their own assigned tasks
+    const isCollaborator = user?.role === 'COLLABORATOR';
+    if (isCollaborator) {
+      const task = tasks.find((t) => t.id === taskId);
+      const isAssigned = task?.assignedUsers?.some((u) => u.id === user.id);
+      if (!isAssigned) {
+        showToast("You can only change the status of tasks assigned to you.", "warning");
+        return;
+      }
+    }
+
     // Optimistically update UI immediately
-    setTasks(prev => prev.map(task => 
-      task.id === taskId ? { ...task, status: status } : task
-    ));
+    setTasks(prev =>
+      prev.map(task =>
+        task.id === taskId ? { ...task, status: status } : task
+      )
+    );
 
     try {
       const backendStatus = status === 'To Do' ? 'TODO' : status === 'In Progress' ? 'IN_PROGRESS' : 'COMPLETED';
       const response = await updateTaskStatus(token, taskId, backendStatus);
-      setTasks(prev => prev.map(task => 
-        task.id === taskId ? transformTask(response.data.task) : task
-      ));
+      setTasks(prev =>
+        prev.map(task =>
+          task.id === taskId ? transformTask(response.data.task) : task
+        )
+      );
       return response.data;
     } catch (err) {
       // Revert on error by refetching

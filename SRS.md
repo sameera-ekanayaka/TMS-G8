@@ -229,7 +229,7 @@ Follow clean, modular folder structure (e.g., /controllers, /services, /routes)
 ---
 
 ## Deliverables
-* Source code, API documentations, ER/Class diagrams, DB design, deployment diagrams.
+* Source code, API documentations, ER diagrams, DB design, deployment diagrams.
 * After initiation of projects each team must publish their source code to a GitHub public repository and share the link.
 * Make sure to demonstrate the website from a proper hosted url.
 

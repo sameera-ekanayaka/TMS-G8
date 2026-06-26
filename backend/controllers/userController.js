@@ -155,6 +155,12 @@ const createUser = async (req, res) => {
       console.error("Onboarding email background failure:", emailError.message);
     });
 
+    // Notify admins about the new user
+    notifyAdmins(req.io, {
+      message: `New user created: ${name} (${role})`,
+      actorId: req.user.id
+    });
+
     return res.status(201).json({
       message: "User created successfully.",
       tempPassword, // Returned as a fallback in case the email fails to deliver
@@ -285,6 +291,16 @@ const updateUser = async (req, res) => {
       }
     }
 
+    // Notify admins about the update
+    let updateMessage = `User "${updatedUser.name}" was updated.`;
+    if (role && role !== existing.role) {
+      updateMessage = `Role for "${updatedUser.name}" changed to ${role}.`;
+    }
+    notifyAdmins(req.io, {
+      message: updateMessage,
+      actorId: req.user.id
+    });
+
     return res.status(200).json({
       message: "User updated successfully.",
       user: updatedUser,
@@ -341,6 +357,11 @@ const deactivateUser = async (req, res) => {
       data: { isActive: false },
     });
 
+    notifyAdmins(req.io, {
+      message: `User "${user.name}" was deactivated.`,
+      actorId: req.user.id
+    });
+
     return res.status(200).json({
       message: "User deactivated successfully.",
     });
@@ -377,6 +398,11 @@ const activateUser = async (req, res) => {
     await prisma.user.update({
       where: { id: userId },
       data: { isActive: true },
+    });
+
+    notifyAdmins(req.io, {
+      message: `User "${user.name}" was re-activated.`,
+      actorId: req.user.id
     });
 
     return res.status(200).json({
@@ -439,6 +465,11 @@ const deleteUser = async (req, res) => {
       prisma.project.updateMany({ where: { managerId: userId }, data: { managerId: req.user.id } }),
       prisma.user.delete({ where: { id: userId } }),
     ]);
+
+    notifyAdmins(req.io, {
+      message: `User "${user.name}" was permanently deleted.`,
+      actorId: req.user.id
+    });
 
     return res.status(200).json({
       message: "User permanently deleted. Their tasks and projects were reassigned to you.",

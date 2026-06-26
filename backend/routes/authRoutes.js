@@ -19,6 +19,7 @@ const { protect } = require("../middleware/authMiddleware");
  * /api/auth/login:
  *   post:
  *     summary: Log in and receive a JWT token
+ *     description: Authenticates a user with email and password. Returns a signed JWT and the user profile. If `mustResetPassword` is true, the frontend should redirect to the password reset page before allowing access.
  *     tags: [Auth]
  *     security: []
  *     requestBody:
@@ -37,13 +38,53 @@ const { protect } = require("../middleware/authMiddleware");
  *                 example: password123
  *     responses:
  *       200:
- *         description: Login successful — returns token and user
+ *         description: Login successful — returns token and user profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                   example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     role:
+ *                       type: string
+ *                       enum: [ADMIN, PROJECT_MANAGER, COLLABORATOR]
+ *                     mustResetPassword:
+ *                       type: boolean
  *       400:
- *         description: Missing email or password
+ *         description: Bad Request — email or password missing
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
- *         description: Invalid credentials
+ *         description: Unauthorized — invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       403:
- *         description: Account deactivated
+ *         description: Forbidden — account has been deactivated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post("/login", login);
 
@@ -52,6 +93,7 @@ router.post("/login", login);
  * /api/auth/forgot-password:
  *   post:
  *     summary: Request a temporary password by email (public)
+ *     description: Generates a new temporary password and emails it to the user. The user will be required to reset their password on next login. Only works for existing, active accounts.
  *     tags: [Auth]
  *     security: []
  *     requestBody:
@@ -67,13 +109,39 @@ router.post("/login", login);
  *                 example: user@example.com
  *     responses:
  *       200:
- *         description: Temporary password emailed
+ *         description: Temporary password emailed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: A temporary password has been sent to your email.
  *       400:
- *         description: Email missing
+ *         description: Bad Request — email field is missing
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       403:
- *         description: Account is deactivated
+ *         description: Forbidden — account is deactivated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
- *         description: No account found with that email
+ *         description: Not Found — no account found with that email
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post("/forgot-password", forgotPassword);
 
@@ -82,6 +150,7 @@ router.post("/forgot-password", forgotPassword);
  * /api/auth/reset-password:
  *   post:
  *     summary: Reset password using temporary password (first login)
+ *     description: Used after account creation or forgot-password flow. Verifies the temporary password and sets the new one. Password must be at least 8 characters and include an uppercase letter, a number, and a special character (!@#$%^&*).
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
@@ -95,16 +164,46 @@ router.post("/forgot-password", forgotPassword);
  *             properties:
  *               tempPassword:
  *                 type: string
+ *                 example: a3f9c2d1b4
  *               newPassword:
  *                 type: string
- *                 minLength: 8
+ *                 description: "Min 8 chars, must include uppercase, number, and special character (!@#$%^&*)"
+ *                 example: MyP@ssw0rd
  *     responses:
  *       200:
  *         description: Password reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Password reset successfully. Please log in with your new password.
  *       400:
- *         description: Validation error
+ *         description: Bad Request — missing fields or password does not meet complexity requirements
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
- *         description: Incorrect temporary password or invalid token
+ *         description: Unauthorized — incorrect temporary password or invalid token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: Not Found — user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post("/reset-password", protect, resetPassword);
 
@@ -113,14 +212,32 @@ router.post("/reset-password", protect, resetPassword);
  * /api/auth/me:
  *   get:
  *     summary: Get the current authenticated user (fresh role/status)
+ *     description: Returns the current user's profile fetched fresh from the database. Useful for the frontend to refresh role or activation status after admin changes.
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Current user
+ *         description: Current user profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
  *       401:
- *         description: Unauthorized / invalid session
+ *         description: Unauthorized — invalid or missing token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get("/me", protect, getMe);
 
@@ -129,6 +246,7 @@ router.get("/me", protect, getMe);
  * /api/auth/change-password:
  *   post:
  *     summary: Change your own password (authenticated)
+ *     description: Allows a logged-in user to voluntarily change their own password. Password must be at least 8 characters and include an uppercase letter, a number, and a special character (!@#$%^&*). New password must differ from the current one.
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
@@ -142,15 +260,46 @@ router.get("/me", protect, getMe);
  *             properties:
  *               currentPassword:
  *                 type: string
+ *                 example: OldP@ssw0rd
  *               newPassword:
  *                 type: string
+ *                 description: "Min 8 chars, must include uppercase, number, and special character (!@#$%^&*)"
+ *                 example: NewP@ssw0rd1
  *     responses:
  *       200:
- *         description: Password changed
+ *         description: Password changed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Password changed successfully.
  *       400:
- *         description: Validation error
+ *         description: Bad Request — missing fields, password does not meet complexity requirements, or new password same as old
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
- *         description: Current password incorrect
+ *         description: Unauthorized — current password is incorrect or invalid token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: Not Found — user not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post("/change-password", protect, changePassword);
 

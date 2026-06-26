@@ -1,19 +1,28 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { TaskProvider } from "./context/TaskContext";
-import { SocketProvider } from "./context/SocketContext";  // ✅ This should work now
+import { SocketProvider } from "./context/SocketContext";
 import { ThemeProvider } from "./context/ThemeContext";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Tasks from "./pages/Tasks";
-import Users from "./pages/Users";
-import ResetPassword from "./pages/ResetPassword";
-import Projects from "./pages/Projects";
+import { ToastProvider } from "./context/ToastContext";
 import Sidebar from "./components/common/Sidebar";
 import Navbar from "./components/common/Navbar";
 
+// Lazy-loaded routes
+const Login = lazy(() => import("./pages/Login"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Tasks = lazy(() => import("./pages/Tasks"));
+const Users = lazy(() => import("./pages/Users"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Projects = lazy(() => import("./pages/Projects"));
+
+// A simple loading fallback
+const PageLoader = () => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+    <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid var(--color-hairline)', borderTopColor: 'var(--color-primary)', animation: 'spin 0.8s linear infinite' }} />
+  </div>
+);
 function ProtectedRoute({ children, allowedRoles }) {
   const { token, user } = useAuth();
   if (!token) return <Navigate to="/login" replace />;
@@ -115,12 +124,16 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <SocketProvider>
-          <TaskProvider>
-            <BrowserRouter>
-              <Toaster position="top-right" />
-              <AppRoutes />
-            </BrowserRouter>
-          </TaskProvider>
+          <ToastProvider>
+            <TaskProvider>
+              <BrowserRouter>
+                <Toaster position="top-right" />
+                <Suspense fallback={<PageLoader />}>
+                  <AppRoutes />
+                </Suspense>
+              </BrowserRouter>
+            </TaskProvider>
+          </ToastProvider>
         </SocketProvider>
       </AuthProvider>
     </ThemeProvider>
