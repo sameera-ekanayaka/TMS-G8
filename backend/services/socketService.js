@@ -66,8 +66,9 @@ const notifyTaskParticipants = async (
 //   message  — notification text (should mention task title + project for clarity)
 //   taskId   — optional; links the notification to a task so the frontend can
 //              navigate directly to it when the bell item is clicked
-//   actorId  — optional; skip this user so an admin who performed the action
-//              does not receive a redundant self-notification
+//   actorId  — accepted for call-site compatibility but no longer used: admins
+//              get a complete oversight feed of every event, including their own
+//              actions, so they always have something in their notification panel.
 //   event    — socket event name (default: "admin_update")
 //
 // Called fire-and-forget from controllers — errors are caught internally so
@@ -83,8 +84,6 @@ const notifyAdmins = async (
     });
 
     for (const admin of admins) {
-      if (actorId && admin.id === actorId) continue; // never self-notify
-
       const dbNotification = await prisma.notification.create({
         data: { message, userId: admin.id, isRead: false, taskId },
       });
