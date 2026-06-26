@@ -4,6 +4,7 @@
 
 
 const prisma = require("../lib/prisma");
+const { notifyTaskParticipants } = require("../services/socketService");
 
 // ════════ HELPER FUNCTION ═══════════════════════════════════════════════════
 // Validates task ID, checks task exists, and verifies user permission
@@ -90,7 +91,7 @@ const createComment = async (req, res) => {
       },
       include: {
         user: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, role: true },
         },
       },
     });
@@ -172,7 +173,7 @@ const getCommentsByTaskId = async (req, res) => {
       where: { taskId: task.id },
       include: {
         user: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, role: true },
         },
       },
       orderBy: { createdAt: "asc" }, // Oldest first
@@ -242,10 +243,33 @@ const updateComment = async (req, res) => {
       },
       include: {
         user: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, role: true },
         },
       },
     });
+
+    // Notify the task's participants (assignees + project manager) that a comment
+    // was edited. Fire-and-forget so a notification failure never breaks the edit.
+    (async () => {
+      try {
+        const task = await prisma.task.findUnique({
+          where: { id: comment.taskId },
+          include: { assignments: true, project: { select: { managerId: true } } },
+        });
+        if (task) {
+          await notifyTaskParticipants(req.io, req.connectedUsers, {
+            taskId: task.id,
+            assigneeIds: task.assignments.map((a) => a.userId),
+            managerId: task.project?.managerId,
+            actorId: userId,
+            message: `A comment was edited on "${task.title}"`,
+            event: "comment_added",
+          });
+        }
+      } catch (e) {
+        console.error("Comment-edit notification failed:", e.message);
+      }
+    })();
 
     return res.status(200).json({
       message: "Comment updated successfully",

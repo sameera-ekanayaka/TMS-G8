@@ -147,6 +147,7 @@ const createTask = async (req, res) => {
           },
         },
         comments: true,
+        _count: { select: { comments: true, attachments: true } },
       },
     });
 
@@ -227,6 +228,7 @@ const getTasks = async (req, res) => {
           user: { select: { id: true, name: true, email: true } },
         },
       },
+      _count: { select: { comments: true, attachments: true } },
     };
 
     let whereClause = { ...filters };
@@ -506,6 +508,7 @@ const updateTask = async (req, res) => {
           },
         },
         comments: true,
+        _count: { select: { comments: true, attachments: true } },
       },
     });
 
@@ -788,6 +791,7 @@ const updateTaskStatus = async (req, res) => {
           },
         },
         comments: true,
+        _count: { select: { comments: true, attachments: true } },
       },
     });
 

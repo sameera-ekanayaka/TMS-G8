@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, X, CheckCircle, Clock, UserPlus, MessageSquare, AlertCircle } from 'lucide-react';
+import { Bell, X, CheckCircle, Clock, UserPlus, MessageSquare, AlertCircle, Paperclip } from 'lucide-react';
 import { useSocket } from '../../context/SocketContext';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -124,12 +124,27 @@ const NotificationPanel = () => {
       setUnreadCount(prev => prev + 1);
     };
 
+    // Handle attachment-added events
+    const handleAttachmentAdded = (data) => {
+      const newNotification = {
+        id: data.id || Date.now(),
+        message: data.message || 'A new attachment was added',
+        type: 'attachment',
+        createdAt: data.createdAt || new Date().toISOString(),
+        isRead: false,
+        taskId: data.taskId || null,
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+    };
+
     // Register event listeners
     socket.on('task_assigned', handleTaskAssigned);
     socket.on('task_status_changed', handleTaskStatusChanged);
     socket.on('comment_added', handleTaskCommented);
     socket.on('deadline_approaching', handleDeadlineApproaching);
     socket.on('admin_update', handleAdminUpdate);
+    socket.on('attachment_added', handleAttachmentAdded);
 
     // Handle reconnection - fetch missed notifications
     const handleReconnect = () => {
@@ -146,6 +161,7 @@ const NotificationPanel = () => {
       socket.off('comment_added', handleTaskCommented);
       socket.off('deadline_approaching', handleDeadlineApproaching);
       socket.off('admin_update', handleAdminUpdate);
+      socket.off('attachment_added', handleAttachmentAdded);
       socket.off('connect', handleReconnect);
     };
   }, [socket]);
@@ -162,6 +178,7 @@ const NotificationPanel = () => {
       task_assigned: <UserPlus className="text-blue-500" size={20} />,
       status_change: <CheckCircle className="text-green-500" size={20} />,
       comment: <MessageSquare className="text-purple-500" size={20} />,
+      attachment: <Paperclip className="text-indigo-500" size={20} />,
       deadline: <Clock className="text-red-500" size={20} />,
       admin_update: <AlertCircle className="text-yellow-500" size={20} />,
     };

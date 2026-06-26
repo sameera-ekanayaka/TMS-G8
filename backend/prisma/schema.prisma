@@ -81,6 +81,7 @@ model Comment {
   id        Int      @id @default(autoincrement())
   content   String   @db.Text
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
   taskId    Int
   userId    Int
 
