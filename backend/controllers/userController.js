@@ -6,7 +6,7 @@ const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const { sendOnboardingEmail } = require("../services/emailService");
 const { sendUserNotification, notifyAdmins } = require("../services/socketService");
-
+const xss = require("xss");
 const prisma = require("../lib/prisma");
 
 // ─── GET /api/users ───────────────────────────────────────────
@@ -80,7 +80,8 @@ const getUserById = async (req, res) => {
 // Body: { name, email, role }
 const createUser = async (req, res) => {
   try {
-    const { name, email, role } = req.body;
+    let { name, email, role } = req.body;
+    if (name) name = xss(name);
 
     // Validate required fields
     if (!name || !email || !role) {
@@ -180,8 +181,9 @@ const createUser = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
-    const { name, email, role } = req.body;
-
+    let { name, email, role, isActive } = req.body;
+    if (name) name = xss(name);
+    
     // At least one field must be provided
     if (!name && !email && !role) {
       return res.status(400).json({

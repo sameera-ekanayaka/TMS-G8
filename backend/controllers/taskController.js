@@ -5,6 +5,7 @@
 
 const prisma = require("../lib/prisma");
 const { notifyAdmins } = require("../services/socketService");
+const xss = require("xss");
 
 // ════════ Helper: notify a user that a task was assigned to them ══════════════
 // Saves the notification and pushes a live event if the user is online.
@@ -52,7 +53,9 @@ const emitTaskEvent = (io, event, payload, assigneeIds = []) => {
 // Returns: { message, task }
 const createTask = async (req, res) => {
   try {
-    const { title, description, priority, dueDate, assignedUserIds, projectId } = req.body;
+    let { title, description, priority, dueDate, assignedUserIds, projectId } = req.body;
+    if (title) title = xss(title);
+    if (description) description = xss(description);
     const userId = req.user.id; // From protect middleware
 
     // Validate required fields
@@ -388,11 +391,12 @@ const getTaskById = async (req, res) => {
 // Returns: { message, task }
 const updateTask = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { title, description, priority, dueDate, assignedUserIds, projectId, status } = req.body;
+    const taskId = parseInt(req.params.id);
+    let { title, description, priority, dueDate, assignedUserIds, projectId, status } = req.body;
+    if (title) title = xss(title);
+    if (description) description = xss(description);
 
     // Validate task ID
-    const taskId = parseInt(id);
     if (isNaN(taskId)) {
       return res.status(400).json({
         error: "Validation Error",
