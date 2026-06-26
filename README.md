@@ -1,7 +1,15 @@
 # Task Management System (TMS)
 **Module:** INTE 21323 | **Group Assignment**
 
-A full-stack web application for creating, managing, and tracking tasks collaboratively in real time.
+A full-stack web application for creating, managing, and tracking tasks collaboratively in real time. This project aligns with our Software Requirements Specification (SRS) to provide a robust, secure, and user-friendly task management solution.
+
+## Features (Aligned with SRS)
+- **User Authentication & Authorization**: JWT-based session management with secure storage and Role-Based Access Control (RBAC) supporting Admin, Project Manager, and Collaborator roles.
+- **User Management**: Admins can securely create, update, deactivate users, and assign roles. Includes forced password reset on first login and strict password policies.
+- **Task Management**: Create, assign, update, and track tasks via a Kanban board view. Tasks include due dates, priority levels (Low, Medium, High), and statuses (To Do, In Progress, Completed).
+- **Real-Time Notifications**: Integrated WebSockets via Socket.io for live updates on task assignments, status changes, comments, and impending deadlines.
+- **Security Best Practices**: Robust protection against SQL Injection and XSS. Secure password hashing (bcrypt), parameterized database queries via Prisma ORM, and HTTPS enforcement.
+- **Validation & Error Handling**: Comprehensive front-end and back-end validation returning standardized HTTP status codes and user-friendly error messages.
 
 ## Live Demo
 - **Frontend:** https://tms-frontend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io
