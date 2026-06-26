@@ -146,6 +146,12 @@ const NotificationPanel = () => {
     socket.on('admin_update', handleAdminUpdate);
     socket.on('attachment_added', handleAttachmentAdded);
 
+    // Task lifecycle events: these are board-patch events handled in TaskContext,
+    // but we also surface them as admin_update notifications in the bell panel.
+    // The backend now emits 'admin_update' for these via notifyAdmins(), so the
+    // handleAdminUpdate listener above already handles them — no extra listeners
+    // needed here. The socket event name used by the backend is 'admin_update'.
+
     // Handle reconnection - fetch missed notifications
     const handleReconnect = () => {
       console.log('🔄 Socket reconnected - fetching missed notifications');
@@ -166,7 +172,14 @@ const NotificationPanel = () => {
     };
   }, [socket]);
 
-  // Initial fetch when panel opens
+  // Initial fetch on component mount — ensures badge count is correct immediately
+  // (not only after the panel is first opened)
+  useEffect(() => {
+    fetchNotifications();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  // Refresh full list whenever the panel is opened (catches any missed events)
   useEffect(() => {
     if (isOpen) {
       fetchNotifications();
