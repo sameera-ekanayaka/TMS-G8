@@ -259,7 +259,7 @@ export default function Users() {
                 </div>
 
                 {/* Right: Actions */}
-                <div className="flex items-center gap-2 w-full sm:w-auto sm:justify-end shrink-0">
+                <div className="flex items-center gap-2 w-full sm:w-1/3 sm:justify-end shrink-0">
                   {!isOtherAdmin(user) && (
                     <button onClick={() => openEditModal(user)} className="ed-btn ed-btn-secondary ed-btn-sm">
                       Edit
