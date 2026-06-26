@@ -202,6 +202,15 @@ const updateUser = async (req, res) => {
       });
     }
 
+    // Prevent any admin from editing another admin's account.
+    // An admin may still edit their own profile (id match is allowed).
+    if (existing.role === "ADMIN" && existing.id !== req.user.id) {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "An admin cannot edit another admin's account.",
+      });
+    }
+
     // don't let the last active admin be demoted, or nobody can manage users
     if (role && existing.role === "ADMIN" && role !== "ADMIN") {
       const activeAdminCount = await prisma.user.count({
@@ -310,6 +319,14 @@ const deactivateUser = async (req, res) => {
       });
     }
 
+    // Prevent any admin from deactivating another admin's account.
+    if (user.role === "ADMIN") {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "An admin cannot deactivate another admin's account.",
+      });
+    }
+
     if (!user.isActive) {
       return res.status(400).json({
         error: "Validation Error",
@@ -393,6 +410,14 @@ const deleteUser = async (req, res) => {
       return res.status(404).json({
         error: "Not Found",
         message: "User not found.",
+      });
+    }
+
+    // Prevent any admin from deleting another admin's account.
+    if (user.role === "ADMIN") {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "An admin cannot delete another admin's account.",
       });
     }
 
