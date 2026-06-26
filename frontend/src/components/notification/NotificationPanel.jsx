@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, X, CheckCircle, Clock, UserPlus, MessageSquare, AlertCircle } from 'lucide-react';
+import { Bell, X, CheckCircle, Clock, UserPlus, MessageSquare, AlertCircle, Paperclip } from 'lucide-react';
 import { useSocket } from '../../context/SocketContext';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const NotificationPanel = () => {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { socket, isConnected } = useSocket();
-  const token = localStorage.getItem('token');
+  const { token } = useAuth();
 
   // Fetch notifications from API
   const fetchNotifications = async () => {
@@ -56,7 +59,7 @@ const NotificationPanel = () => {
         type: 'task_assigned',
         createdAt: data.timestamp || new Date().toISOString(),
         isRead: false,
-        taskId: data.taskId,
+        taskId: data.taskId || (data.task && data.task.id),
       };
       setNotifications(prev => [newNotification, ...prev]);
       setUnreadCount(prev => prev + 1);
@@ -70,7 +73,7 @@ const NotificationPanel = () => {
         type: 'status_change',
         createdAt: data.timestamp || new Date().toISOString(),
         isRead: false,
-        taskId: data.taskId,
+        taskId: data.taskId || (data.task && data.task.id),
       };
       setNotifications(prev => [newNotification, ...prev]);
       setUnreadCount(prev => prev + 1);
@@ -78,14 +81,14 @@ const NotificationPanel = () => {
 
     // Handle task comment events (if backend supports)
     const handleTaskCommented = (data) => {
-      console.log('💬 Task commented:', data);
+      console.log('💬 Comment added:', data);
       const newNotification = {
         id: data.id || Date.now(),
         message: data.message || `New comment on "${data.taskTitle}"`,
         type: 'comment',
         createdAt: data.timestamp || new Date().toISOString(),
         isRead: false,
-        taskId: data.taskId,
+        taskId: data.taskId || (data.task && data.task.id),
       };
       setNotifications(prev => [newNotification, ...prev]);
       setUnreadCount(prev => prev + 1);
@@ -100,7 +103,36 @@ const NotificationPanel = () => {
         type: 'deadline',
         createdAt: data.timestamp || new Date().toISOString(),
         isRead: false,
-        taskId: data.taskId,
+        taskId: data.taskId || (data.task && data.task.id),
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+    };
+
+    // Handle administrative updates (role change, project-manager assignment)
+    const handleAdminUpdate = (data) => {
+      console.log('🛠️ Admin update:', data);
+      const newNotification = {
+        id: data.id || Date.now(),
+        message: data.message,
+        type: 'admin_update',
+        createdAt: data.createdAt || new Date().toISOString(),
+        isRead: false,
+        taskId: data.taskId || null,
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+    };
+
+    // Handle attachment-added events
+    const handleAttachmentAdded = (data) => {
+      const newNotification = {
+        id: data.id || Date.now(),
+        message: data.message || 'A new attachment was added',
+        type: 'attachment',
+        createdAt: data.createdAt || new Date().toISOString(),
+        isRead: false,
+        taskId: data.taskId || null,
       };
       setNotifications(prev => [newNotification, ...prev]);
       setUnreadCount(prev => prev + 1);
@@ -109,8 +141,16 @@ const NotificationPanel = () => {
     // Register event listeners
     socket.on('task_assigned', handleTaskAssigned);
     socket.on('task_status_changed', handleTaskStatusChanged);
-    socket.on('task_commented', handleTaskCommented);
+    socket.on('comment_added', handleTaskCommented);
     socket.on('deadline_approaching', handleDeadlineApproaching);
+    socket.on('admin_update', handleAdminUpdate);
+    socket.on('attachment_added', handleAttachmentAdded);
+
+    // Task lifecycle events: these are board-patch events handled in TaskContext,
+    // but we also surface them as admin_update notifications in the bell panel.
+    // The backend now emits 'admin_update' for these via notifyAdmins(), so the
+    // handleAdminUpdate listener above already handles them — no extra listeners
+    // needed here. The socket event name used by the backend is 'admin_update'.
 
     // Handle reconnection - fetch missed notifications
     const handleReconnect = () => {
@@ -124,13 +164,22 @@ const NotificationPanel = () => {
     return () => {
       socket.off('task_assigned', handleTaskAssigned);
       socket.off('task_status_changed', handleTaskStatusChanged);
-      socket.off('task_commented', handleTaskCommented);
+      socket.off('comment_added', handleTaskCommented);
       socket.off('deadline_approaching', handleDeadlineApproaching);
+      socket.off('admin_update', handleAdminUpdate);
+      socket.off('attachment_added', handleAttachmentAdded);
       socket.off('connect', handleReconnect);
     };
   }, [socket]);
 
-  // Initial fetch when panel opens
+  // Initial fetch on component mount — ensures badge count is correct immediately
+  // (not only after the panel is first opened)
+  useEffect(() => {
+    fetchNotifications();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  // Refresh full list whenever the panel is opened (catches any missed events)
   useEffect(() => {
     if (isOpen) {
       fetchNotifications();
@@ -142,6 +191,7 @@ const NotificationPanel = () => {
       task_assigned: <UserPlus className="text-blue-500" size={20} />,
       status_change: <CheckCircle className="text-green-500" size={20} />,
       comment: <MessageSquare className="text-purple-500" size={20} />,
+      attachment: <Paperclip className="text-indigo-500" size={20} />,
       deadline: <Clock className="text-red-500" size={20} />,
       admin_update: <AlertCircle className="text-yellow-500" size={20} />,
     };
@@ -181,6 +231,14 @@ const NotificationPanel = () => {
     }
   };
 
+  const handleNotificationClick = (notif) => {
+    markAsRead(notif.id);
+    if (notif.taskId) {
+      setIsOpen(false);
+      navigate(`/tasks?taskId=${notif.taskId}`);
+    }
+  };
+
   const markAllRead = async () => {
     try {
       await markAllNotificationsRead(token);
@@ -195,79 +253,95 @@ const NotificationPanel = () => {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 hover:bg-gray-100 rounded-full transition-colors"
+        className="ed-bell relative flex items-center justify-center transition-colors"
+        style={{ width: 40, height: 40, borderRadius: 'var(--rounded-md)', color: 'var(--color-body)' }}
+        title="Notifications"
       >
-        <Bell size={24} className="text-gray-600" />
+        <Bell size={20} />
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
+          <span
+            className="absolute flex items-center justify-center"
+            style={{
+              top: 4, right: 4, height: 17, minWidth: 17, padding: '0 4px',
+              background: 'var(--color-danger)', color: '#fff', fontSize: 10, fontWeight: 600,
+              borderRadius: 'var(--rounded-full)', border: '2px solid var(--color-canvas)',
+            }}
+          >
             {unreadCount}
           </span>
         )}
         {!isConnected && (
-          <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full border-2 border-white"></span>
+          <span
+            className="absolute"
+            style={{ bottom: 4, right: 4, width: 9, height: 9, background: 'var(--color-warning)', borderRadius: '50%', border: '2px solid var(--color-canvas)' }}
+          />
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border max-h-[500px] flex flex-col z-50">
-          <div className="p-3 border-b flex justify-between items-center bg-gray-50 rounded-t-lg">
+        <div
+          className="absolute right-0 mt-2 flex flex-col z-50 ed-scroll"
+          style={{
+            width: 360, maxHeight: 500, background: 'var(--color-canvas)',
+            border: '1px solid var(--color-hairline)', borderRadius: 'var(--rounded-md)', boxShadow: 'var(--shadow-lg)',
+          }}
+        >
+          <div
+            className="flex justify-between items-center px-4 py-3"
+            style={{ borderBottom: '1px solid var(--color-hairline)' }}
+          >
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-gray-800">Notifications</h3>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-ink)' }}>Notifications</h3>
               {!isConnected && (
-                <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full">
-                  Offline
-                </span>
+                <span className="ed-badge ed-badge-medium">Offline</span>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               {notifications.some(n => !n.isRead) && (
                 <button
                   onClick={markAllRead}
-                  className="text-xs text-blue-500 hover:text-blue-600 hover:underline"
+                  style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-link)' }}
                 >
                   Mark all read
                 </button>
               )}
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
+              <button onClick={() => setIsOpen(false)} style={{ color: 'var(--color-faint)' }}>
                 <X size={18} />
               </button>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto divide-y">
+          <div className="flex-1 overflow-y-auto ed-scroll">
             {loading ? (
               <div className="flex items-center justify-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                <div className="ed-spinner" style={{ width: 28, height: 28 }} />
               </div>
             ) : notifications.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <Bell size={32} className="mx-auto mb-2 text-gray-300" />
-                <p>No notifications yet</p>
+              <div className="p-10 text-center" style={{ color: 'var(--color-muted)' }}>
+                <Bell size={30} className="mx-auto mb-2" style={{ color: 'var(--color-hairline-strong)' }} />
+                <p style={{ fontSize: 14 }}>No notifications yet</p>
               </div>
             ) : (
               notifications.map((notif) => (
                 <div
                   key={notif.id}
-                  className={`p-3 hover:bg-gray-55 transition-colors cursor-pointer ${
-                    !notif.isRead ? 'bg-blue-50' : ''
-                  } border-l-4 ${getTypeColor(notif.type)}`}
-                  onClick={() => markAsRead(notif.id)}
+                  className="ed-notif px-4 py-3 transition-colors cursor-pointer"
+                  style={{
+                    borderBottom: '1px solid var(--color-hairline)',
+                    background: !notif.isRead ? 'var(--color-info-soft)' : 'transparent',
+                  }}
+                  onClick={() => handleNotificationClick(notif)}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="mt-1">{getIcon(notif.type)}</div>
+                    <div className="mt-0.5">{getIcon(notif.type)}</div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${!notif.isRead ? 'font-medium' : 'text-gray-650'}`}>
+                      <p style={{ fontSize: 13.5, lineHeight: 1.45, color: 'var(--color-body)', fontWeight: !notif.isRead ? 500 : 400 }}>
                         {notif.message}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
-                        <p className="text-xs text-gray-500">{formatTime(notif.createdAt)}</p>
+                        <p style={{ fontSize: 11.5, color: 'var(--color-faint)' }}>{formatTime(notif.createdAt)}</p>
                         {!notif.isRead && (
-                          <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">
-                            New
-                          </span>
+                          <span className="ed-badge ed-badge-progress">New</span>
                         )}
                       </div>
                     </div>

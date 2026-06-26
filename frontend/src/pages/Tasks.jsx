@@ -1,32 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { useTasks } from '../context/TaskContext';
 import { useSocket } from '../context/SocketContext';
+import { useAuth } from '../context/AuthContext';
 import { Search, Filter, Plus, LayoutGrid, LayoutList, Kanban } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import TaskCard from '../components/Task/TaskCard';
 import TaskTable from '../components/Task/TaskTable';
 import TaskForm from '../components/Task/TaskForm';
+import TaskDetails from '../components/Task/TaskDetails';
+import { useSearchParams } from 'react-router-dom';
 
 const Tasks = () => {
-  const { tasks, loading, filters, setFilters, fetchTasks, addTask, editTask, removeTask } = useTasks();
+  const { tasks, loading, filters, setFilters, fetchTasks, addTask, editTask, removeTask, changeTaskStatus } = useTasks();
   const { socket } = useSocket();
+  const { user } = useAuth();
+  // only managers create/edit/delete. collaborators can still view and
+  // change status on tasks assigned to them.
+  const canManage = user?.role === 'ADMIN' || user?.role === 'PROJECT_MANAGER';
   const [showFilters, setShowFilters] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingTask, setEditingTask] = useState(null);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid', 'table', 'board'
+  const [viewingTask, setViewingTask] = useState(null);
+  const [viewMode, setViewMode] = useState('board'); // 'table', 'board'
 
   const statusOptions = ['All', 'To Do', 'In Progress', 'Completed'];
   const priorityOptions = ['All', 'Low', 'Medium', 'High'];
+  // Values must match the backend's validSortFields in taskController.getTasks
+  // (createdAt, dueDate, priority, status, project) — 'projectId' was invalid
+  // and silently fell back to createdAt.
   const sortOptions = [
+    { value: '', label: 'Default' },
     { value: 'dueDate', label: 'Due Date' },
     { value: 'priority', label: 'Priority' },
-    { value: 'title', label: 'Title' },
     { value: 'status', label: 'Status' },
-    { value: 'createdAt', label: 'Created Date' },
-  ];
-  const orderOptions = [
-    { value: 'asc', label: 'Ascending' },
-    { value: 'desc', label: 'Descending' },
+    { value: 'project', label: 'Project' },
   ];
 
   // Real-time task updates via Socket.io
@@ -48,21 +56,14 @@ const Tasks = () => {
       fetchTasks();
     };
 
-    const handleTaskStatusChanged = ({ taskId, newStatus }) => {
-      console.log('📝 Real-time: Task status changed', taskId, newStatus);
-      fetchTasks();
-    };
-
     socket.on('taskCreated', handleTaskCreated);
     socket.on('taskUpdated', handleTaskUpdated);
     socket.on('taskDeleted', handleTaskDeleted);
-    socket.on('taskStatusChanged', handleTaskStatusChanged);
 
     return () => {
       socket.off('taskCreated', handleTaskCreated);
       socket.off('taskUpdated', handleTaskUpdated);
       socket.off('taskDeleted', handleTaskDeleted);
-      socket.off('taskStatusChanged', handleTaskStatusChanged);
     };
   }, [socket, fetchTasks]);
 
@@ -70,8 +71,24 @@ const Tasks = () => {
     fetchTasks();
   }, []);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTaskId = searchParams.get('taskId');
+  const urlProjectId = searchParams.get('projectId');
+
+  useEffect(() => {
+    if (urlTaskId && tasks.length > 0) {
+      const task = tasks.find(t => t.id === parseInt(urlTaskId));
+      if (task) {
+        setViewingTask(task);
+        setSearchParams({});
+      }
+    }
+  }, [urlTaskId, tasks, setSearchParams]);
+
   const handleFilterChange = (key, value) => {
-    setFilters({ ...filters, [key]: value === 'All' ? '' : value });
+    const newFilters = { ...filters, [key]: value === 'All' ? '' : value };
+    setFilters(newFilters);
+    fetchTasks(newFilters);
   };
 
   const handleSortChange = (key, value) => {
@@ -79,11 +96,18 @@ const Tasks = () => {
     fetchTasks({ ...filters, [key]: value });
   };
 
+  const handleResetFilters = () => {
+    const updatedFilters = { status: '', priority: '', sortBy: '', order: '' };
+    setFilters(updatedFilters);
+    fetchTasks(updatedFilters);
+  };
+
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
   };
 
   const filteredTasks = tasks.filter(task => {
+    if (urlProjectId && task.projectId !== urlProjectId) return false;
     if (!searchTerm) return true;
     return task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
            task.description?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -101,65 +125,91 @@ const Tasks = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="ed-spinner" />
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+    <div>
+      <div className="flex justify-between items-center mb-6 pb-4 flex-wrap gap-3" style={{ borderBottom: '1px solid var(--color-hairline)' }}>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
-          <p className="text-gray-500">Manage all your tasks in one place</p>
+          <h1 className="ed-page-title">Tasks</h1>
+          <p className="ed-page-subtitle">
+            {urlProjectId ? 'Viewing tasks for selected project' : 'Manage all your tasks in one place'}
+          </p>
         </div>
-        <button
-          onClick={() => {
-            setEditingTask(null);
-            setShowTaskForm(true);
-          }}
-          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center gap-2"
-        >
-          <Plus size={20} />
-          New Task
-        </button>
+        <div className="flex gap-2">
+          {urlProjectId && (
+            <button
+              onClick={() => {
+                const newParams = new URLSearchParams(searchParams);
+                newParams.delete('projectId');
+                setSearchParams(newParams);
+              }}
+              className="ed-btn ed-btn-secondary"
+            >
+              Clear Project Filter
+            </button>
+          )}
+          {canManage && (
+            <button
+              onClick={() => {
+                setEditingTask(null);
+                setShowTaskForm(true);
+              }}
+              className="ed-btn ed-btn-primary"
+            >
+              <Plus size={18} />
+              New Task
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Search, Filters, and View Toggle */}
-      <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-        <div className="flex flex-wrap gap-4">
+      <div className="ed-card-flat p-4 mb-6">
+        <div className="flex flex-wrap gap-3 items-center">
           <div className="flex-1 min-w-[200px]">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2" size={17} style={{ color: 'var(--color-faint)' }} />
               <input
                 type="text"
                 placeholder="Search tasks..."
                 value={searchTerm}
                 onChange={handleSearch}
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="ed-input"
+                style={{ paddingLeft: 38, height: 40 }}
               />
             </div>
           </div>
 
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50"
+            className="ed-btn ed-btn-secondary"
           >
-            <Filter size={18} />
+            <Filter size={17} />
             Filters
           </button>
 
-          {/* View Toggle */}
-          <div className="flex border rounded-lg overflow-hidden">
-            {['grid', 'table', 'board'].map((mode) => (
+          {/* View Toggle — segmented control */}
+          <div
+            className="flex p-1 gap-1"
+            style={{ background: 'var(--color-surface-soft)', border: '1px solid var(--color-hairline)', borderRadius: 'var(--rounded-md)' }}
+          >
+            {['table', 'board'].map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className={`px-3 py-2 capitalize flex items-center gap-1 transition-colors ${
-                  viewMode === mode
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
+                className="capitalize flex items-center gap-2 px-3 py-1.5 transition-colors"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  borderRadius: 'var(--rounded-sm)',
+                  background: viewMode === mode ? 'var(--color-canvas)' : 'transparent',
+                  color: viewMode === mode ? 'var(--color-ink)' : 'var(--color-muted)',
+                  boxShadow: viewMode === mode ? 'var(--shadow-sm)' : 'none',
+                }}
               >
                 {getViewIcon(mode)}
                 <span className="hidden sm:inline">{mode}</span>
@@ -169,13 +219,14 @@ const Tasks = () => {
         </div>
 
         {showFilters && (
-          <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t">
+          <div className="flex flex-wrap gap-4 mt-4 pt-4" style={{ borderTop: '1px solid var(--color-hairline)' }}>
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Status</label>
+              <label className="ed-label">Status</label>
               <select
                 value={filters.status || 'All'}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="ed-select"
+                style={{ height: 40, width: 'auto', minWidth: 150 }}
               >
                 {statusOptions.map(option => (
                   <option key={option} value={option}>{option}</option>
@@ -184,11 +235,12 @@ const Tasks = () => {
             </div>
 
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Priority</label>
+              <label className="ed-label">Priority</label>
               <select
                 value={filters.priority || 'All'}
                 onChange={(e) => handleFilterChange('priority', e.target.value)}
-                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="ed-select"
+                style={{ height: 40, width: 'auto', minWidth: 150 }}
               >
                 {priorityOptions.map(option => (
                   <option key={option} value={option}>{option}</option>
@@ -197,11 +249,12 @@ const Tasks = () => {
             </div>
 
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Sort By</label>
+              <label className="ed-label">Sort By</label>
               <select
-                value={filters.sortBy || 'dueDate'}
+                value={filters.sortBy !== undefined ? filters.sortBy : 'dueDate'}
                 onChange={(e) => handleSortChange('sortBy', e.target.value)}
-                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="ed-select"
+                style={{ height: 40, width: 'auto', minWidth: 150 }}
               >
                 {sortOptions.map(option => (
                   <option key={option.value} value={option.value}>{option.label}</option>
@@ -209,17 +262,13 @@ const Tasks = () => {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Order</label>
-              <select
-                value={filters.order || 'asc'}
-                onChange={(e) => handleSortChange('order', e.target.value)}
-                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <div className="flex items-end">
+              <button
+                onClick={handleResetFilters}
+                className="ed-btn ed-btn-ghost"
               >
-                {orderOptions.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
+                Reset Filters
+              </button>
             </div>
           </div>
         )}
@@ -227,36 +276,27 @@ const Tasks = () => {
 
       {/* Task Display based on view mode */}
       {filteredTasks.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">📋</div>
-          <p className="text-gray-500">No tasks found</p>
-          <button
-            onClick={() => setShowTaskForm(true)}
-            className="mt-4 text-blue-500 hover:underline"
-          >
-            Create your first task
-          </button>
+        <div className="ed-card-flat text-center" style={{ padding: '64px 24px' }}>
+          <p style={{ fontSize: 32, marginBottom: 8 }}>☰</p>
+          <p style={{ color: 'var(--color-muted)', fontSize: 14 }}>No tasks found</p>
+          {canManage && (
+            <button
+              onClick={() => setShowTaskForm(true)}
+              className="ed-btn ed-btn-primary"
+              style={{ marginTop: 16 }}
+            >
+              <Plus size={16} />
+              Create your first task
+            </button>
+          )}
         </div>
       ) : (
         <>
-          {viewMode === 'grid' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredTasks.map(task => (
-                <TaskCard 
-                  key={task.id} 
-                  task={task} 
-                  onEdit={() => {
-                    setEditingTask(task);
-                    setShowTaskForm(true);
-                  }}
-                />
-              ))}
-            </div>
-          )}
-
           {viewMode === 'table' && (
-            <TaskTable 
+            <TaskTable
               tasks={filteredTasks}
+              canManage={canManage}
+              onView={(task) => setViewingTask(task)}
               onEdit={(task) => {
                 setEditingTask(task);
                 setShowTaskForm(true);
@@ -265,27 +305,103 @@ const Tasks = () => {
           )}
 
           {viewMode === 'board' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {['To Do', 'In Progress', 'Completed'].map((status) => (
-                <div key={status} className="bg-gray-50 rounded-lg p-4 min-h-[300px]">
-                  <h3 className="font-medium mb-3">{status}</h3>
-                  <div className="space-y-3">
-                    {filteredTasks
-                      .filter(task => task.status === status)
-                      .map(task => (
-                        <TaskCard 
-                          key={task.id} 
-                          task={task} 
-                          onEdit={() => {
-                            setEditingTask(task);
-                            setShowTaskForm(true);
-                          }}
-                        />
-                      ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <DragDropContext
+              onDragEnd={(result) => {
+                if (!result.destination) return;
+                const sourceStatus = result.source.droppableId;
+                const destStatus = result.destination.droppableId;
+                const taskId = isNaN(parseInt(result.draggableId)) ? result.draggableId : parseInt(result.draggableId);
+                
+                if (sourceStatus !== destStatus) {
+                  changeTaskStatus(taskId, destStatus);
+                }
+              }}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5">
+                {['To Do', 'In Progress', 'Completed'].map((status) => {
+                  const columnTasks = filteredTasks.filter((task) => task.status === status);
+
+                  const accentMap = {
+                    'To Do': 'var(--color-faint)',
+                    'In Progress': 'var(--color-info)',
+                    'Completed': 'var(--color-success)',
+                  };
+                  const accent = accentMap[status] || 'var(--color-faint)';
+
+                  return (
+                  <Droppable key={status} droppableId={status}>
+                    {(provided, snapshot) => (
+                      <div
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                        className="flex flex-col min-h-[500px]"
+                        style={{
+                          background: 'var(--color-surface-soft)',
+                          border: '1px solid var(--color-hairline)',
+                          borderRadius: 'var(--rounded-md)',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <div
+                          className="flex items-center justify-between px-4 py-3 shrink-0"
+                          style={{ borderBottom: '1px solid var(--color-hairline)' }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="ed-dot" style={{ background: accent }} />
+                            <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-ink)' }}>{status}</h3>
+                          </div>
+                          <span
+                            style={{
+                              fontSize: 12, fontWeight: 600, color: 'var(--color-muted)',
+                              background: 'var(--color-canvas)', border: '1px solid var(--color-hairline)',
+                              borderRadius: 'var(--rounded-full)', padding: '1px 9px', minWidth: 24, textAlign: 'center',
+                            }}
+                          >
+                            {columnTasks.length}
+                          </span>
+                        </div>
+                        <div
+                          className="flex-1 p-3 space-y-3 ed-scroll transition-colors"
+                          style={{ background: snapshot.isDraggingOver ? 'var(--color-surface-strong)' : 'transparent' }}
+                        >
+                          {columnTasks.length === 0 && !snapshot.isDraggingOver && (
+                            <div
+                              className="flex items-center justify-center text-center py-10 px-3"
+                              style={{ border: '1px dashed var(--color-hairline-strong)', borderRadius: 'var(--rounded-md)', color: 'var(--color-faint)', fontSize: 13 }}
+                            >
+                              No tasks
+                            </div>
+                          )}
+                          {columnTasks
+                            .map((task, index) => (
+                              <Draggable key={task.id} draggableId={task.id.toString()} index={index}>
+                                {(provided) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                  >
+                                    <TaskCard
+                                      task={task}
+                                      canManage={canManage}
+                                      onView={() => setViewingTask(task)}
+                                      onEdit={() => {
+                                        setEditingTask(task);
+                                        setShowTaskForm(true);
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                          {provided.placeholder}
+                        </div>
+                      </div>
+                    )}
+                  </Droppable>
+                )})}
+              </div>
+            </DragDropContext>
           )}
         </>
       )}
@@ -298,6 +414,13 @@ const Tasks = () => {
             setEditingTask(null);
           }}
           onSuccess={() => fetchTasks()}
+        />
+      )}
+
+      {viewingTask && (
+        <TaskDetails
+          task={viewingTask}
+          onClose={() => setViewingTask(null)}
         />
       )}
     </div>

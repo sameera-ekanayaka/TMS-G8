@@ -4,7 +4,7 @@
 
 const express = require("express");
 const router = express.Router();
-const { login, resetPassword } = require("../controllers/authController");
+const { login, resetPassword, getMe, forgotPassword, changePassword } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 
 /**
@@ -49,6 +49,36 @@ router.post("/login", login);
 
 /**
  * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Request a temporary password by email (public)
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: user@example.com
+ *     responses:
+ *       200:
+ *         description: Temporary password emailed
+ *       400:
+ *         description: Email missing
+ *       403:
+ *         description: Account is deactivated
+ *       404:
+ *         description: No account found with that email
+ */
+router.post("/forgot-password", forgotPassword);
+
+/**
+ * @swagger
  * /api/auth/reset-password:
  *   post:
  *     summary: Reset password using temporary password (first login)
@@ -77,5 +107,51 @@ router.post("/login", login);
  *         description: Incorrect temporary password or invalid token
  */
 router.post("/reset-password", protect, resetPassword);
+
+/**
+ * @swagger
+ * /api/auth/me:
+ *   get:
+ *     summary: Get the current authenticated user (fresh role/status)
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current user
+ *       401:
+ *         description: Unauthorized / invalid session
+ */
+router.get("/me", protect, getMe);
+
+/**
+ * @swagger
+ * /api/auth/change-password:
+ *   post:
+ *     summary: Change your own password (authenticated)
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [currentPassword, newPassword]
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password changed
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Current password incorrect
+ */
+router.post("/change-password", protect, changePassword);
 
 module.exports = router;

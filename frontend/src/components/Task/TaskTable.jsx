@@ -1,36 +1,28 @@
 import React, { useState } from 'react';
 import { useTasks } from '../../context/TaskContext';
-import { Calendar, User, Tag, Edit2, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Edit2, Trash2, CheckSquare } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
-const TaskTable = ({ tasks, onEdit }) => {
+const TaskTable = ({ tasks, onEdit, onView, canManage = true }) => {
   const { changeTaskStatus, removeTask } = useTasks();
-  const [sortField, setSortField] = useState(null);
-  const [sortDirection, setSortDirection] = useState('asc');
+  const { user } = useAuth();
+  const [sortField, setSortField] = useState('priority');
+  const [sortDirection, setSortDirection] = useState('desc');
 
   const getPriorityBadge = (priority) => {
-    const colors = {
-      High: 'bg-red-100 text-red-800',
-      Medium: 'bg-yellow-100 text-yellow-800',
-      Low: 'bg-green-100 text-green-800',
-    };
-    return colors[priority] || 'bg-gray-100 text-gray-800';
+    const map = { High: 'ed-badge-high', Medium: 'ed-badge-medium', Low: 'ed-badge-low' };
+    return `ed-badge ${map[priority] || 'ed-badge-low'}`;
   };
 
   const getStatusBadge = (status) => {
-    const colors = {
-      'To Do': 'bg-blue-100 text-blue-800',
-      'In Progress': 'bg-yellow-100 text-yellow-800',
-      'Completed': 'bg-green-100 text-green-800',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    const map = { 'To Do': 'ed-badge-todo', 'In Progress': 'ed-badge-progress', 'Completed': 'ed-badge-done' };
+    return `ed-badge ${map[status] || 'ed-badge-todo'}`;
   };
 
   const formatDate = (date) => {
     if (!date) return '—';
     return new Date(date).toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
+      month: 'short', day: 'numeric', year: 'numeric'
     });
   };
 
@@ -43,22 +35,25 @@ const TaskTable = ({ tasks, onEdit }) => {
     }
   };
 
-  const getSortIcon = (field) => {
-    if (sortField !== field) return null;
-    return sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />;
-  };
-
   const sortedTasks = [...tasks].sort((a, b) => {
     if (!sortField) return 0;
+    
+    if (sortField === 'priority') {
+      const priorityWeights = { 'High': 3, 'Medium': 2, 'Low': 1 };
+      const aWeight = priorityWeights[a.priority] || 0;
+      const bWeight = priorityWeights[b.priority] || 0;
+      
+      if (aWeight < bWeight) return sortDirection === 'asc' ? -1 : 1;
+      if (aWeight > bWeight) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    }
+
     let aVal = a[sortField];
     let bVal = b[sortField];
-    
     if (aVal === undefined || aVal === null) return 1;
     if (bVal === undefined || bVal === null) return -1;
-    
     if (typeof aVal === 'string') aVal = aVal.toLowerCase();
     if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-    
     if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
     if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
     return 0;
@@ -71,120 +66,107 @@ const TaskTable = ({ tasks, onEdit }) => {
   };
 
   return (
-    <div className="overflow-x-auto bg-white rounded-lg shadow-sm border">
-      <table className="w-full">
-        <thead className="bg-gray-50 border-b">
-          <tr>
-            <th 
-              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-              onClick={() => handleSort('title')}
-            >
-              <div className="flex items-center gap-1">
-                Task
-                {getSortIcon('title')}
-              </div>
-            </th>
-            <th 
-              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-              onClick={() => handleSort('priority')}
-            >
-              <div className="flex items-center gap-1">
-                Priority
-                {getSortIcon('priority')}
-              </div>
-            </th>
-            <th 
-              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-              onClick={() => handleSort('status')}
-            >
-              <div className="flex items-center gap-1">
-                Status
-                {getSortIcon('status')}
-              </div>
-            </th>
-            <th 
-              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-              onClick={() => handleSort('assignedUser')}
-            >
-              <div className="flex items-center gap-1">
-                Assigned To
-                {getSortIcon('assignedUser')}
-              </div>
-            </th>
-            <th 
-              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-              onClick={() => handleSort('dueDate')}
-            >
-              <div className="flex items-center gap-1">
-                Due Date
-                {getSortIcon('dueDate')}
-              </div>
-            </th>
-            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
-          {sortedTasks.map((task) => (
-            <tr key={task.id} className="hover:bg-gray-50 transition-colors">
-              <td className="px-4 py-3">
-                <div>
-                  <p className="font-medium text-gray-900">{task.title}</p>
-                  {task.description && (
-                    <p className="text-sm text-gray-500 truncate max-w-xs">{task.description}</p>
-                  )}
-                </div>
-              </td>
-              <td className="px-4 py-3">
-                <span className={`text-xs px-2 py-1 rounded-full ${getPriorityBadge(task.priority)}`}>
-                  {task.priority}
-                </span>
-              </td>
-              <td className="px-4 py-3">
-                <span className={`text-xs px-2 py-1 rounded-full ${getStatusBadge(task.status)}`}>
-                  {task.status}
-                </span>
-              </td>
-              <td className="px-4 py-3">
-                <span className="text-sm flex items-center gap-1">
-                  <User size={14} className="text-gray-400" />
-                  {task.assignedUser || 'Unassigned'}
-                </span>
-              </td>
-              <td className="px-4 py-3">
-                <span className="text-sm flex items-center gap-1">
-                  <Calendar size={14} className="text-gray-400" />
-                  {formatDate(task.dueDate)}
-                </span>
-              </td>
-              <td className="px-4 py-3">
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    onClick={() => onEdit(task)}
-                    className="p-1 text-gray-400 hover:text-blue-500 rounded hover:bg-blue-50 transition-colors"
-                  >
-                    <Edit2 size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(task.id)}
-                    className="p-1 text-gray-400 hover:text-red-500 rounded hover:bg-red-50 transition-colors"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </td>
+    <div className="ed-card-flat shadow-sm p-2 sm:p-4">
+      <div className="overflow-x-auto ed-scroll">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-borderstrong/30">
+              <th className="pb-4 pt-2 font-medium text-[13px] text-muted cursor-pointer whitespace-nowrap hover:text-ink transition-colors" onClick={() => handleSort('title')}>
+                Task Name <span className="inline-block ml-1 text-[10px] opacity-60">↕</span>
+              </th>
+              <th className="pb-4 pt-2 font-medium text-[13px] text-muted cursor-pointer whitespace-nowrap hover:text-ink transition-colors" onClick={() => handleSort('priority')}>
+                Priority <span className="inline-block ml-1 text-[10px] opacity-60">↕</span>
+              </th>
+              <th className="pb-4 pt-2 font-medium text-[13px] text-muted cursor-pointer whitespace-nowrap hover:text-ink transition-colors" onClick={() => handleSort('status')}>
+                Status <span className="inline-block ml-1 text-[10px] opacity-60">↕</span>
+              </th>
+              <th className="pb-4 pt-2 font-medium text-[13px] text-muted cursor-pointer whitespace-nowrap hover:text-ink transition-colors" onClick={() => handleSort('assignedUser')}>
+                Assigned To <span className="inline-block ml-1 text-[10px] opacity-60">↕</span>
+              </th>
+              <th className="pb-4 pt-2 font-medium text-[13px] text-muted cursor-pointer whitespace-nowrap hover:text-ink transition-colors" onClick={() => handleSort('dueDate')}>
+                Due Date <span className="inline-block ml-1 text-[10px] opacity-60">↕</span>
+              </th>
+              <th className="pb-4 pt-2 font-medium text-[13px] text-muted text-center whitespace-nowrap">
+                Action
+              </th>
             </tr>
-          ))}
-        </tbody>
-        <tfoot className="bg-gray-50 border-t">
-          <tr>
-            <td colSpan="6" className="px-4 py-3 text-sm text-gray-500">
-              {sortedTasks.length} task{sortedTasks.length !== 1 ? 's' : ''}
-            </td>
-          </tr>
-        </tfoot>
-      </table>
+          </thead>
+          <tbody>
+            {sortedTasks.map((task) => (
+              <tr key={task.id} className="border-b border-borderstrong/10 hover:bg-surface-soft transition-colors group">
+                <td className="py-4 pr-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-md bg-surface-strong flex items-center justify-center text-muted shrink-0 border border-borderstrong/20">
+                      <CheckSquare size={18} />
+                    </div>
+                    <div
+                      className={onView ? 'cursor-pointer' : ''}
+                      onClick={() => onView && onView(task)}
+                    >
+                      <p className="font-normal text-[15px] text-ink tracking-tight leading-snug hover:text-link transition-colors">{task.title}</p>
+                      {task.project && (
+                        <p className="text-[12px] font-medium text-muted mt-0.5">{task.project.name}</p>
+                      )}
+                    </div>
+                  </div>
+                </td>
+                <td className="py-4">
+                  <span className={getPriorityBadge(task.priority)}>
+                    {task.priority}
+                  </span>
+                </td>
+                <td className="py-4">
+                  <span className={getStatusBadge(task.status)}>
+                    {task.status}
+                  </span>
+                </td>
+                <td className="py-4">
+                  <div className="flex items-center gap-2">
+                    {task.assignedUsers && task.assignedUsers.length > 0 ? (
+                      <div className="flex -space-x-1.5">
+                         {task.assignedUsers.slice(0, 3).map(u => (
+                           <div key={u.id} className="w-7 h-7 rounded-pill bg-primary flex items-center justify-center text-[10px] font-medium text-on-primary ring-2 ring-canvas" title={u.name}>
+                             {u.name.charAt(0).toUpperCase()}
+                           </div>
+                         ))}
+                         {task.assignedUsers.length > 3 && (
+                           <div className="w-7 h-7 rounded-pill bg-surface-strong border border-borderstrong flex items-center justify-center text-[10px] font-medium text-ink ring-2 ring-canvas">
+                             +{task.assignedUsers.length - 3}
+                           </div>
+                         )}
+                      </div>
+                    ) : (
+                      <span className="text-[13px] font-medium text-muted italic">Unassigned</span>
+                    )}
+                  </div>
+                </td>
+                <td className="py-4">
+                  <span className={`text-[13px] font-medium ${new Date(task.dueDate) < new Date() && task.status !== 'Completed' ? 'text-signature-coral' : 'text-ink'}`}>
+                    {formatDate(task.dueDate)}
+                  </span>
+                </td>
+                <td className="py-4 text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    {canManage ? (
+                      <>
+                        <button onClick={() => onEdit(task)} className="p-1.5 text-muted hover:text-ink hover:bg-surface-strong rounded-sm transition-colors">
+                          <Edit2 size={16} />
+                        </button>
+                        <button onClick={() => handleDelete(task.id)} className="p-1.5 text-muted hover:text-signature-coral hover:bg-signature-coral/10 rounded-sm transition-colors">
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-borderstrong font-bold tracking-widest">...</span>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
     </div>
   );
 };

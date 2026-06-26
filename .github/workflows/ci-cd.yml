@@ -1,0 +1,232 @@
+name: CI/CD — Build, Push & Deploy to Azure
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Only one deploy per ref at a time — a newer push cancels an in-flight run so
+# rapid successive merges don't race to deploy stale images to Azure.
+concurrency:
+  group: cicd-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/tms-backend
+  IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/tms-frontend
+
+jobs:
+  # ── 1. Backend CI ────────────────────────────────────────────────────────────
+  backend-ci:
+    name: Backend — Install & Generate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: cd backend && npm ci
+
+      - name: Generate Prisma client
+        run: cd backend && npx prisma generate
+
+  # ── 2. Frontend CI ───────────────────────────────────────────────────────────
+  frontend-ci:
+    name: Frontend — Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: cd frontend && npm ci
+
+      - name: Build (with placeholder URLs for CI verification)
+        run: cd frontend && npm run build
+        env:
+          VITE_API_URL: https://placeholder.azurecontainerapps.io
+          VITE_WS_URL: https://placeholder.azurecontainerapps.io
+
+  # ── 3. Build & Push Docker Images ───────────────────────────────────────────
+  # Only runs on push to main (not PRs)
+  build-and-push:
+    name: Build & Push Images to ghcr.io
+    needs: [backend-ci, frontend-ci]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Secure Database URL
+        env:
+          DB_URL_SECRET: ${{ secrets.DATABASE_URL }}
+        run: |
+          # Robustly handle newlines, quotes, and query parameter injection
+          SECURE_URL=$(node -e "
+            let str = process.env.DB_URL_SECRET.trim().replace(/^[\"']|[\"']$/g, '');
+            try {
+              const u = new URL(str);
+              u.searchParams.set('sslaccept', 'accept');
+              console.log(u.toString());
+            } catch(e) {
+              if (!str.includes('sslaccept=')) {
+                str += str.includes('?') ? '&sslaccept=accept' : '?sslaccept=accept';
+              }
+              console.log(str);
+            }
+          ")
+          echo "SECURE_DATABASE_URL=$SECURE_URL" >> $GITHUB_ENV
+
+      - name: Run Prisma Migrations & Seed
+        working-directory: ./backend
+        run: |
+          npm ci
+          npx prisma db push
+          npx prisma db seed
+        env:
+          DATABASE_URL: ${{ env.SECURE_DATABASE_URL }}
+          PRISMA_CLI_BINARY_TARGETS: debian-openssl-3.0.x
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Backend Image ────────────────────────────────────────────────────────
+      - name: Build & Push Backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.IMAGE_BACKEND }}:latest
+            ${{ env.IMAGE_BACKEND }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── Frontend Image ───────────────────────────────────────────────────────
+      - name: Build & Push Frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.IMAGE_FRONTEND }}:latest
+            ${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
+          build-args: |
+            VITE_API_URL=https://tms-backend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io
+            VITE_WS_URL=https://tms-backend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io
+          # NOTE: cache intentionally disabled so Vite always rebuilds with the correct production URLs
+          no-cache: true
+
+  # ── 4. Deploy to Azure Container Apps ───────────────────────────────────────
+  deploy:
+    name: Deploy to Azure
+    needs: [build-and-push]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (Service Principal)
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # ── Deploy Backend ───────────────────────────────────────────────────────
+      - name: Set up Secure Database URL (deploy job)
+        env:
+          DB_URL_SECRET: ${{ secrets.DATABASE_URL }}
+        run: |
+          SECURE_URL=$(node -e "
+            let str = process.env.DB_URL_SECRET.trim().replace(/^[\"']|[\"']$/g, '');
+            try {
+              const u = new URL(str);
+              u.searchParams.set('sslaccept', 'accept');
+              console.log(u.toString());
+            } catch(e) {
+              if (!str.includes('sslaccept=')) {
+                str += str.includes('?') ? '&sslaccept=accept' : '?sslaccept=accept';
+              }
+              console.log(str);
+            }
+          ")
+          echo "SECURE_DATABASE_URL=$SECURE_URL" >> $GITHUB_ENV
+
+      - name: Deploy Backend Container App
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          appSourcePath: ./backend
+          acrName: ''                       # using ghcr.io, not ACR
+          containerAppName: tms-backend
+          resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          imageToDeploy: ${{ env.IMAGE_BACKEND }}:${{ github.sha }}
+          registryUrl: ghcr.io
+          registryUsername: ${{ github.actor }}
+          registryPassword: ${{ secrets.GHCR_TOKEN }}
+          targetPort: 5000
+          environmentVariables: |
+            DATABASE_URL=${{ env.SECURE_DATABASE_URL }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            EMAIL_ENABLED=true
+            ACS_CONNECTION_STRING=${{ secrets.ACS_CONNECTION_STRING }}
+            EMAIL_FROM=${{ secrets.EMAIL_FROM }}
+            CLIENT_URL=https://tms-frontend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io
+            NODE_ENV=production
+            PORT=5000
+
+      # The deploy action only reliably applies DATABASE_URL from its multiline
+      # environmentVariables block, so JWT_SECRET never lands and the backend now
+      # hard-fails without it. Set the runtime env explicitly here. Secrets are
+      # injected via `env:` and referenced as shell vars (not inline ${{ }}) so
+      # spaces/newlines in values can't break the command; the command is a single
+      # line and the resource group is literal so a trailing newline in the
+      # AZURE_RESOURCE_GROUP secret can't terminate the `-g` argument early.
+      - name: Ensure backend runtime env vars
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          DB_URL: ${{ env.SECURE_DATABASE_URL }}
+          ACS: ${{ secrets.ACS_CONNECTION_STRING }}
+          MAIL_FROM: ${{ secrets.EMAIL_FROM }}
+        run: az containerapp update -n tms-backend -g tms-rg --set-env-vars "JWT_SECRET=$JWT_SECRET" "DATABASE_URL=$DB_URL" "NODE_ENV=production" "PORT=5000" "CLIENT_URL=https://tms-frontend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io" "EMAIL_ENABLED=true" "ACS_CONNECTION_STRING=$ACS" "EMAIL_FROM=$MAIL_FROM"
+
+      # ── Deploy Frontend ──────────────────────────────────────────────────────
+      - name: Deploy Frontend Container App
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          appSourcePath: ./frontend
+          acrName: ''
+          containerAppName: tms-frontend
+          resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          imageToDeploy: ${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
+          registryUrl: ghcr.io
+          registryUsername: ${{ github.actor }}
+          registryPassword: ${{ secrets.GHCR_TOKEN }}
+          # nginx serves on port 80 — pin it so ingress never drifts to the
+          # backend's 5000 (which makes new revisions fail health checks and
+          # silently keep serving the old image).
+          targetPort: 80

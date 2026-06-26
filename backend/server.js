@@ -1,8 +1,18 @@
 require("dotenv").config();
+
+// Fail fast if the JWT signing secret is missing — never fall back to a known
+// hardcoded value, which would let forged tokens be accepted.
+if (!process.env.JWT_SECRET) {
+  console.error("FATAL: JWT_SECRET is not set. Refusing to start.");
+  process.exit(1);
+}
+
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./swagger");
 
@@ -12,14 +22,21 @@ const taskRoutes = require("./routes/taskRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const attachmentRoutes = require("./routes/attachmentRoutes");
+const projectRoutes = require("./routes/projectRoutes");
 
 const app = express();
+app.set("trust proxy", 1);
 const httpServer = http.createServer(app);
 const jwt = require("jsonwebtoken");
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://tms-frontend.kindpebble-85fc4cff.centralindia.azurecontainerapps.io"
+];
+
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
   },
 });
@@ -46,6 +63,7 @@ io.use((socket, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.userId = decoded.id;
+    socket.userRole = decoded.role;
     next();
   } catch (err) {
     next(new Error("Authentication error: invalid or expired token"));
@@ -54,6 +72,13 @@ io.use((socket, next) => {
 
 io.on("connection", (socket) => {
   connectedUsers[socket.userId] = socket.id;
+
+  // personal room per user + a shared "managers" room, so task events go to
+  // managers and the task's assignees only, not to everyone
+  socket.join(`user:${socket.userId}`);
+  if (socket.userRole === "ADMIN" || socket.userRole === "PROJECT_MANAGER") {
+    socket.join("managers");
+  }
   console.log(`User ${socket.userId} connected with socket ${socket.id}`);
 
   socket.on("disconnect", () => {
@@ -74,21 +99,46 @@ app.use((req, _res, next) => {
   next();
 });
 
-app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173", credentials: true }));
+// security headers. allow cross-origin so the frontend can load /uploads files
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
+
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 const path = require("path");
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// limit auth attempts to slow down brute force / credential stuffing
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per IP per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "Too Many Requests",
+    message: "Too many attempts from this IP. Please try again later.",
+  },
+});
+
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/tasks", commentRoutes);
 app.use("/api/tasks", attachmentRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/projects", projectRoutes);
 
 app.get("/", (_req, res) => {
   res.json({ message: "TMS API is running", docs: "/api-docs" });
+});
+
+// Health check endpoint — used by Docker HEALTHCHECK and Azure Container Apps liveness probe
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 app.use((_req, res) => {

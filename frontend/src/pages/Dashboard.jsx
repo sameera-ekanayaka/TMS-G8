@@ -1,498 +1,357 @@
 import React, { useState, useEffect } from 'react';
-import { useTasks } from '../context/TaskContext';
 import { useAuth } from '../context/AuthContext';
-import { 
-  CheckCircle, 
-  Clock, 
-  AlertCircle, 
-  List, 
-  Calendar,
-  TrendingUp,
-  BarChart3,
-  User,
-  ArrowUp,
-  ArrowDown
-} from 'lucide-react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  ResponsiveContainer, 
-  PieChart, 
-  Pie, 
-  Cell,
-  LineChart,
-  Line,
-  CartesianGrid,
-  Legend
-} from 'recharts';
+import { useTasks } from '../context/TaskContext';
+import { getUsers } from '../services/api';
+
+/* ── Stat Card — flat white canvas, hairline border ── */
+const StatCard = ({ title, value, icon, accentColor }) => (
+  <div style={{
+    background: 'var(--color-canvas)',
+    borderRadius: 'var(--rounded-md)',          /* 10px */
+    border: '1px solid var(--color-hairline)',
+    padding: 'var(--space-xl)',                 /* 32px */
+    flex: 1,
+    minWidth: 150,
+  }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div>
+        <p style={{
+          color: 'var(--color-muted)',
+          fontSize: '12px',
+          fontWeight: '500',
+          margin: '0 0 var(--space-xs)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+        }}>
+          {title}
+        </p>
+        <p style={{
+          fontSize: 'var(--text-display-lg)',   /* ~40px */
+          fontWeight: '400',                    /* design.md: weight via size, not boldness */
+          color: 'var(--color-ink)',
+          margin: 0,
+          lineHeight: 1,
+        }}>
+          {value}
+        </p>
+      </div>
+      <div style={{
+        width: '40px',
+        height: '40px',
+        borderRadius: 'var(--rounded-sm)',      /* 6px */
+        background: accentColor + '15',
+        border: `1px solid ${accentColor}30`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '18px',
+      }}>
+        {icon}
+      </div>
+    </div>
+    {/* Minimal bottom accent line */}
+    <div style={{ height: '2px', background: accentColor, borderRadius: 'var(--rounded-full)', marginTop: 'var(--space-lg)', width: '32px', opacity: 0.7 }} />
+  </div>
+);
 
 const Dashboard = () => {
-  // Get data from contexts
-  const { tasks, loading } = useTasks();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+  const { tasks: contextTasks, loading: tasksLoading } = useTasks();
   
-  // State for stats
-  const [stats, setStats] = useState({
-    total: 0,
-    completed: 0,
-    inProgress: 0,
-    todo: 0,
-    overdue: 0,
-    completionRate: 0,
-    highPriority: 0,
-    mediumPriority: 0,
-    lowPriority: 0,
-  });
-  
-  // State for weekly data
-  const [weeklyData, setWeeklyData] = useState([]);
+  const [userCount, setUserCount] = useState(0);
+  const [usersLoading, setUsersLoading] = useState(user?.role === 'ADMIN');
 
-  // Calculate stats when tasks change
   useEffect(() => {
-    if (tasks && tasks.length > 0) {
-      const now = new Date();
-      const completed = tasks.filter(t => t.status === 'Completed').length;
-      const inProgress = tasks.filter(t => t.status === 'In Progress').length;
-      const todo = tasks.filter(t => t.status === 'To Do').length;
-      const overdue = tasks.filter(t => 
-        t.dueDate && new Date(t.dueDate) < now && t.status !== 'Completed'
-      ).length;
-      const highPriority = tasks.filter(t => t.priority === 'High').length;
-      const mediumPriority = tasks.filter(t => t.priority === 'Medium').length;
-      const lowPriority = tasks.filter(t => t.priority === 'Low').length;
-
-      setStats({
-        total: tasks.length,
-        completed,
-        inProgress,
-        todo,
-        overdue,
-        completionRate: tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0,
-        highPriority,
-        mediumPriority,
-        lowPriority,
-      });
-
-      calculateWeeklyData(tasks);
-    } else {
-      setStats({
-        total: 0,
-        completed: 0,
-        inProgress: 0,
-        todo: 0,
-        overdue: 0,
-        completionRate: 0,
-        highPriority: 0,
-        mediumPriority: 0,
-        lowPriority: 0,
-      });
-      setWeeklyData([]);
-    }
-  }, [tasks]);
-
-  // Calculate weekly data
-  const calculateWeeklyData = (taskList) => {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const now = new Date();
-    const weekAgo = new Date(now);
-    weekAgo.setDate(weekAgo.getDate() - 7);
-
-    const weekTasks = taskList.filter(t => {
-      const created = new Date(t.createdAt);
-      return created >= weekAgo && created <= now;
-    });
-
-    const weeklyStats = days.map(day => {
-      const dayTasks = weekTasks.filter(t => {
-        const dayOfWeek = new Date(t.createdAt).getDay();
-        const dayMap = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 0: 'Sun' };
-        return dayMap[dayOfWeek] === day;
-      });
-      return {
-        day,
-        created: dayTasks.length,
-        completed: dayTasks.filter(t => t.status === 'Completed').length,
-      };
-    });
-
-    setWeeklyData(weeklyStats);
-  };
-
-  // Data for charts
-  const statusData = [
-    { name: 'To Do', value: stats.todo },
-    { name: 'In Progress', value: stats.inProgress },
-    { name: 'Completed', value: stats.completed },
-  ];
-
-  const COLORS = ['#3B82F6', '#F59E0B', '#10B981'];
-
-  const priorityData = [
-    { name: 'Low', count: stats.lowPriority || 0 },
-    { name: 'Medium', count: stats.mediumPriority || 0 },
-    { name: 'High', count: stats.highPriority || 0 },
-  ];
-
-  const priorityColors = ['#10B981', '#F59E0B', '#EF4444'];
-
-  // Get recent tasks (last 5)
-  const recentTasks = tasks && tasks.length > 0 
-    ? [...tasks].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5)
-    : [];
-
-  const getPriorityColor = (priority) => {
-    const colors = {
-      High: 'bg-red-100 text-red-800',
-      Medium: 'bg-yellow-100 text-yellow-800',
-      Low: 'bg-green-100 text-green-800',
+    const fetchAdminData = async () => {
+      if (token && user?.role === 'ADMIN') {
+        try {
+          const userRes = await getUsers(token);
+          setUserCount(userRes.data.users.length);
+        } catch (error) {
+          console.error('Failed to fetch users');
+        } finally {
+          setUsersLoading(false);
+        }
+      } else {
+        setUsersLoading(false);
+      }
     };
-    return colors[priority] || 'bg-gray-100 text-gray-800';
+    fetchAdminData();
+  }, [token, user?.role]);
+
+  // Derive stats from the globally synced tasks
+  const stats = {
+    total: contextTasks.length,
+    todo: contextTasks.filter(t => t.status === 'To Do' || t.status === 'TODO').length,
+    inProgress: contextTasks.filter(t => t.status === 'In Progress' || t.status === 'IN_PROGRESS').length,
+    completed: contextTasks.filter(t => t.status === 'Completed' || t.status === 'COMPLETED').length,
+  };
+  
+  const recentTasks = contextTasks.slice(0, 5);
+  const isLoading = tasksLoading || usersLoading;
+
+  const completionRate = stats.total > 0
+    ? Math.round((stats.completed / stats.total) * 100)
+    : 0;
+
+  const getPriorityStyle = (priority) => {
+    const p = (priority || '').toUpperCase();
+    if (p === 'HIGH') return { bg: '#fff5f5', color: 'var(--color-danger)', dot: 'var(--color-danger)' };
+    if (p === 'MEDIUM') return { bg: '#fffbeb', color: 'var(--color-warning)', dot: 'var(--color-warning)' };
+    return { bg: '#f0fdf4', color: 'var(--color-success)', dot: 'var(--color-success)' };
   };
 
-  const getStatusColor = (status) => {
-    const colors = {
-      'To Do': 'bg-blue-100 text-blue-800',
-      'In Progress': 'bg-yellow-100 text-yellow-800',
-      'Completed': 'bg-green-100 text-green-800',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+  const getStatusStyle = (status) => {
+    const s = (status || '').toUpperCase();
+    if (s === 'COMPLETED') return { bg: '#f0fdf4', color: 'var(--color-success)' };
+    if (s === 'IN_PROGRESS' || s === 'IN PROGRESS') return { bg: '#eff6ff', color: 'var(--color-info)' };
+    return { bg: 'var(--color-surface-soft)', color: 'var(--color-muted)' };
   };
 
-  const getStatusIcon = (status) => {
-    const icons = {
-      'To Do': '📋',
-      'In Progress': '⏳',
-      'Completed': '✅',
-    };
-    return icons[status] || '📌';
-  };
+  const timeOfDay = new Date().getHours();
+  const greeting = timeOfDay < 12 ? 'Morning' : timeOfDay < 17 ? 'Afternoon' : 'Evening';
 
-  const formatDate = (date) => {
-    if (!date) return 'No date';
-    const d = new Date(date);
-    return d.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  // Loading state
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-500">Loading dashboard...</p>
-        </div>
+  if (isLoading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid var(--color-hairline)', borderTopColor: 'var(--color-primary)', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+        <p style={{ color: 'var(--color-muted)', fontSize: 'var(--text-body-md)' }}>Loading dashboard…</p>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Welcome Section */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
+    <div style={styles.page}>
+
+        {/* ── Page Header ── */}
+        <div style={styles.header}>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Welcome back, {user?.name || 'User'}! 👋
+            <h1 style={styles.pageTitle}>
+              Good {greeting}, {user?.name?.split(' ')[0]}
             </h1>
-            <p className="text-gray-500 mt-1">Here's an overview of your tasks and progress</p>
-          </div>
-          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow-sm border">
-            <User size={18} className="text-gray-400" />
-            <span className="text-sm text-gray-600">{user?.role || 'User'}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white p-5 rounded-xl shadow-sm border hover:shadow-md transition-all duration-200 hover:scale-105">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Total Tasks</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">{stats.total}</p>
-            </div>
-            <div className="bg-blue-50 p-3 rounded-xl">
-              <List className="text-blue-500" size={24} />
-            </div>
-          </div>
-          <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
-            <span>All tasks in the system</span>
+            <p style={styles.pageSubtitle}>
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl shadow-sm border hover:shadow-md transition-all duration-200 hover:scale-105">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Completed</p>
-              <p className="text-3xl font-bold text-green-600 mt-1">{stats.completed}</p>
-            </div>
-            <div className="bg-green-50 p-3 rounded-xl">
-              <CheckCircle className="text-green-500" size={24} />
-            </div>
-          </div>
-          <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
-            <span>{stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}% of total</span>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl shadow-sm border hover:shadow-md transition-all duration-200 hover:scale-105">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">In Progress</p>
-              <p className="text-3xl font-bold text-yellow-600 mt-1">{stats.inProgress}</p>
-            </div>
-            <div className="bg-yellow-50 p-3 rounded-xl">
-              <Clock className="text-yellow-500" size={24} />
-            </div>
-          </div>
-          <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
-            <span>Currently active tasks</span>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-xl shadow-sm border hover:shadow-md transition-all duration-200 hover:scale-105">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Overdue</p>
-              <p className="text-3xl font-bold text-red-600 mt-1">{stats.overdue}</p>
-            </div>
-            <div className="bg-red-50 p-3 rounded-xl">
-              <AlertCircle className="text-red-500" size={24} />
-            </div>
-          </div>
-          <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
-            <span className="text-red-500">⚠️ Need attention</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-xl shadow-sm border">
-          <h3 className="font-semibold text-gray-900 mb-4">Task Status Distribution</h3>
-          {tasks && tasks.length > 0 ? (
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={statusData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={true}
-                    label={({ name, percent }) => `${name}\n${(percent * 100).toFixed(0)}%`}
-                    outerRadius={90}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {statusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="h-72 flex items-center justify-center text-gray-400">
-              <div className="text-center">
-                <BarChart3 size={56} className="mx-auto mb-3 opacity-50" />
-                <p className="font-medium">No tasks to display</p>
-                <p className="text-sm">Create your first task to see analytics</p>
-              </div>
-            </div>
+        {/* ── Stats Grid — white canvas cards ── */}
+        <div style={styles.statsGrid}>
+          <StatCard title="Total Tasks" value={stats.total} icon="☰" accentColor="var(--color-primary)" />
+          <StatCard title="To Do" value={stats.todo} icon="○" accentColor="var(--color-warning)" />
+          <StatCard title="In Progress" value={stats.inProgress} icon="◑" accentColor="var(--color-info)" />
+          <StatCard title="Completed" value={stats.completed} icon="◉" accentColor="var(--color-success)" />
+          {user?.role === 'ADMIN' && (
+            <StatCard title="Team Members" value={userCount} icon="⊙" accentColor="var(--color-sig-coral)" />
           )}
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border">
-          <h3 className="font-semibold text-gray-900 mb-4">Priority Distribution</h3>
-          {tasks && tasks.length > 0 ? (
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={priorityData} layout="vertical">
-                  <XAxis type="number" />
-                  <YAxis type="category" dataKey="name" />
-                  <Tooltip />
-                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                    {priorityData.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={priorityColors[index % priorityColors.length]} 
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="h-72 flex items-center justify-center text-gray-400">
-              <div className="text-center">
-                <BarChart3 size={56} className="mx-auto mb-3 opacity-50" />
-                <p className="font-medium">No tasks to display</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+        {/* ── Content Grid ── */}
+        <div className="ed-dash-grid">
 
-      {/* Weekly Progress and Recent Tasks */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-xl shadow-sm border">
-          <h3 className="font-semibold text-gray-900 mb-4">Weekly Progress</h3>
-          {weeklyData.length > 0 && weeklyData.some(d => d.created > 0 || d.completed > 0) ? (
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={weeklyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="day" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="created" 
-                    stroke="#3B82F6" 
-                    name="Created" 
-                    strokeWidth={2}
-                    dot={{ fill: '#3B82F6' }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="completed" 
-                    stroke="#10B981" 
-                    name="Completed" 
-                    strokeWidth={2}
-                    dot={{ fill: '#10B981' }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="h-72 flex items-center justify-center text-gray-400">
-              <div className="text-center">
-                <TrendingUp size={56} className="mx-auto mb-3 opacity-50" />
-                <p className="font-medium">No weekly data available</p>
-                <p className="text-sm">Tasks created/completed this week will appear here</p>
-              </div>
-            </div>
-          )}
-        </div>
+          {/* Progress Card */}
+          <div style={styles.card}>
+            <h2 style={styles.cardTitle}>Task Progress</h2>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900">Recent Tasks</h3>
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-              Last 5 tasks
-            </span>
+            {/* Completion donut */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-xl)' }}>
+              <svg viewBox="0 0 100 100" style={{ width: '110px', height: '110px' }}>
+                <circle cx="50" cy="50" r="40" fill="none" stroke="var(--color-hairline)" strokeWidth="8" />
+                <circle
+                  cx="50" cy="50" r="40" fill="none"
+                  stroke="var(--color-primary)"
+                  strokeWidth="8"
+                  strokeDasharray={`${completionRate * 2.51} 251`}
+                  strokeLinecap="round"
+                  transform="rotate(-90 50 50)"
+                />
+                <text x="50" y="47" textAnchor="middle" fill="var(--color-ink)" fontSize="16" fontWeight="400" fontFamily="Inter, sans-serif">{completionRate}%</text>
+                <text x="50" y="62" textAnchor="middle" fill="var(--color-muted)" fontSize="8" fontFamily="Inter, sans-serif">Complete</text>
+              </svg>
+            </div>
+
+            {/* Progress bars */}
+            {[
+              { label: 'Completed', value: stats.completed, total: stats.total, color: 'var(--color-success)' },
+              { label: 'In Progress', value: stats.inProgress, total: stats.total, color: 'var(--color-info)' },
+              { label: 'To Do', value: stats.todo, total: stats.total, color: 'var(--color-warning)' },
+            ].map((item, i) => (
+              <div key={i} style={{ marginBottom: 'var(--space-md)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--color-body)', fontWeight: '400' }}>{item.label}</span>
+                  <span style={{ fontSize: '13px', fontWeight: '500', color: 'var(--color-ink)' }}>
+                    {item.value} / {item.total}
+                  </span>
+                </div>
+                <div style={{ background: 'var(--color-surface-soft)', borderRadius: 'var(--rounded-full)', height: '6px', border: '1px solid var(--color-hairline)' }}>
+                  <div style={{
+                    width: `${item.total > 0 ? (item.value / item.total) * 100 : 0}%`,
+                    background: item.color,
+                    borderRadius: 'var(--rounded-full)',
+                    height: '4px',
+                    marginTop: '0px',
+                    transition: 'width 0.6s ease',
+                  }} />
+                </div>
+              </div>
+            ))}
           </div>
-          {recentTasks.length === 0 ? (
-            <div className="h-72 flex items-center justify-center text-gray-400">
-              <div className="text-center">
-                <List size={56} className="mx-auto mb-3 opacity-50" />
-                <p className="font-medium">No tasks yet</p>
-                <p className="text-sm">Create your first task to get started</p>
-              </div>
+
+          {/* Recent Tasks Card */}
+          <div style={styles.card}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-lg)' }}>
+              <h2 style={styles.cardTitle}>Recent Tasks</h2>
+              <button
+                onClick={() => window.location.href = '/tasks'}
+                style={{ background: 'none', border: 'none', color: 'var(--color-link)', cursor: 'pointer', fontSize: '13px', fontWeight: '500', fontFamily: 'var(--font-base)' }}
+              >
+                View all →
+              </button>
             </div>
-          ) : (
-            <div className="space-y-3 max-h-72 overflow-y-auto">
-              {recentTasks.map(task => (
-                <div key={task.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{getStatusIcon(task.status)}</span>
-                      <p className="font-medium text-gray-900 truncate">{task.title}</p>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${getPriorityColor(task.priority)}`}>
+
+            {recentTasks.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 'var(--space-xxl) var(--space-lg)', color: 'var(--color-muted)' }}>
+                <p style={{ fontSize: '28px', marginBottom: '8px' }}>☰</p>
+                <p style={{ fontSize: 'var(--text-body-md)' }}>No tasks yet</p>
+              </div>
+            ) : (
+              recentTasks.map(task => {
+                const ps = getPriorityStyle(task.priority);
+                const ss = getStatusStyle(task.status);
+                return (
+                  <div key={task.id} style={styles.taskItem}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                      <p style={{ fontSize: '14px', fontWeight: '500', color: 'var(--color-ink)', margin: 0, flex: 1, lineHeight: 1.4 }}>
+                        {task.title}
+                      </p>
+                      <span style={{ ...styles.taskBadge, background: ps.bg, color: ps.color, marginLeft: '8px' }}>
                         {task.priority}
                       </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ ...styles.taskBadge, background: ss.bg, color: ss.color }}>
+                        {task.status.replace('_', ' ')}
+                      </span>
                       {task.dueDate && (
-                        <span className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded-full ${
-                          new Date(task.dueDate) < new Date() && task.status !== 'Completed'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          <Calendar size={12} />
-                          {formatDate(task.dueDate)}
+                        <span style={{ fontSize: '12px', color: 'var(--color-muted)' }}>
+                          {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </span>
                       )}
                     </div>
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(task.status)}`}>
-                    {task.status}
-                  </span>
+                );
+              })
+            )}
+          </div>
+
+          {/* Role Card — signature-dark treatment (design.md: hero-card-dark) */}
+          <div style={{ ...styles.card, background: 'var(--color-surface-dark)', border: 'none' }}>
+            <h2 style={{ ...styles.cardTitle, color: 'var(--color-on-dark)', fontWeight: '400' }}>Your Role</h2>
+            <div style={{ textAlign: 'center', padding: 'var(--space-xl) 0' }}>
+              <div style={{
+                width: '60px', height: '60px',
+                borderRadius: 'var(--rounded-lg)',
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '26px', margin: '0 auto var(--space-md)',
+              }}>
+                {user?.role === 'ADMIN' ? '◈' : user?.role === 'PROJECT_MANAGER' ? '◎' : '◉'}
+              </div>
+              <p style={{ color: 'var(--color-on-dark)', fontSize: 'var(--text-title-md)', fontWeight: '400', margin: '0 0 var(--space-xs)' }}>
+                {user?.role?.replace('_', ' ')}
+              </p>
+              <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '13px', lineHeight: '1.5', margin: 0 }}>
+                {user?.role === 'ADMIN' && 'Full system access including user management'}
+                {user?.role === 'PROJECT_MANAGER' && 'Create & manage tasks, assign to collaborators'}
+                {user?.role === 'COLLABORATOR' && 'View & update status of assigned tasks'}
+              </p>
+            </div>
+
+            {/* Quick stats on dark */}
+            <div style={{ display: 'flex', gap: 'var(--space-xs)', marginTop: 'var(--space-md)' }}>
+              {[
+                { label: 'Tasks', value: stats.total },
+                { label: 'Done', value: `${completionRate}%` },
+                ...(user?.role === 'ADMIN' ? [{ label: 'Users', value: userCount }] : []),
+              ].map((s, i) => (
+                <div key={i} style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 'var(--rounded-md)', padding: 'var(--space-sm)', textAlign: 'center' }}>
+                  <p style={{ color: 'var(--color-on-dark)', fontSize: '18px', fontWeight: '400', margin: '0 0 3px' }}>{s.value}</p>
+                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', margin: 0, fontWeight: '400' }}>{s.label}</p>
                 </div>
               ))}
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Completion Rate */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-gray-900">Overall Completion Rate</h3>
-              <div className="flex items-center gap-3">
-                <span className="text-3xl font-bold text-blue-600">{stats.completionRate}%</span>
-                {stats.completionRate > 70 && stats.total > 0 && (
-                  <span className="text-green-500 bg-green-50 px-2 py-1 rounded-full text-xs flex items-center gap-1">
-                    <ArrowUp size={14} />
-                    Great!
-                  </span>
-                )}
-                {stats.completionRate < 30 && stats.total > 0 && (
-                  <span className="text-red-500 bg-red-50 px-2 py-1 rounded-full text-xs flex items-center gap-1">
-                    <ArrowDown size={14} />
-                    Needs focus
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-4">
-              <div
-                className={`h-4 rounded-full transition-all duration-1000 ${
-                  stats.completionRate > 70 ? 'bg-green-500' :
-                  stats.completionRate > 40 ? 'bg-yellow-500' :
-                  'bg-red-500'
-                }`}
-                style={{ width: `${stats.completionRate}%` }}
-              />
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
-              <span className="text-gray-500">
-                {stats.completed} out of {stats.total} tasks completed
-              </span>
-              {stats.total > 0 && (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                    <span className="text-gray-600">To Do: {stats.todo}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <span className="text-gray-600">In Progress: {stats.inProgress}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="text-gray-600">Completed: {stats.completed}</span>
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         </div>
-      </div>
     </div>
   );
+};
+
+const styles = {
+  page: {
+    width: '100%',
+    /* chrome (sidebar, navbar, padding, max-width) is provided by MainLayout */
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 'var(--space-xl)',
+    paddingBottom: 'var(--space-xl)',
+    borderBottom: '1px solid var(--color-hairline)',
+  },
+  pageTitle: {
+    fontSize: 'var(--text-title-lg)',            /* 24px */
+    fontWeight: '400',
+    color: 'var(--color-ink)',
+    margin: '0 0 var(--space-xxs)',
+    lineHeight: 1.3,
+  },
+  pageSubtitle: {
+    color: 'var(--color-muted)',
+    fontSize: 'var(--text-body-md)',
+    fontWeight: '400',
+    margin: 0,
+  },
+  statsGrid: {
+    display: 'flex',
+    gap: 'var(--space-md)',                       /* 16px — gutter */
+    marginBottom: 'var(--space-lg)',
+    flexWrap: 'wrap',
+  },
+  contentGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: 'var(--space-md)',
+  },
+  card: {
+    background: 'var(--color-canvas)',
+    borderRadius: 'var(--rounded-md)',            /* 10px */
+    border: '1px solid var(--color-hairline)',
+    padding: 'var(--space-xl)',                   /* 32px */
+  },
+  cardTitle: {
+    fontSize: 'var(--text-label-md)',             /* 16px */
+    fontWeight: '500',
+    color: 'var(--color-ink)',
+    margin: '0 0 var(--space-lg)',
+    lineHeight: 1.4,
+  },
+  taskItem: {
+    background: 'var(--color-surface-soft)',
+    borderRadius: 'var(--rounded-sm)',            /* 6px */
+    padding: 'var(--space-sm) var(--space-md)',
+    marginBottom: 'var(--space-xs)',
+    border: '1px solid var(--color-hairline)',
+  },
+  taskBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '2px 8px',
+    borderRadius: 'var(--rounded-full)',
+    fontSize: '11px',
+    fontWeight: '500',
+  },
 };
 
 export default Dashboard;

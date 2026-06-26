@@ -7,6 +7,8 @@ const router = express.Router();
 const {
   createComment,
   getCommentsByTaskId,
+  updateComment,
+  deleteComment,
 } = require("../controllers/commentController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -98,5 +100,67 @@ router.post("/:id/comments", protect, createComment);
  *         description: Internal server error
  */
 router.get("/:id/comments", protect, getCommentsByTaskId);
+
+/**
+ * @swagger
+ * /api/tasks/comments/{commentId}:
+ *   put:
+ *     summary: Update a comment (author or admin only)
+ *     tags: [Comments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [content]
+ *             properties:
+ *               content:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Comment updated
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden — only the author or an admin can edit
+ *       404:
+ *         description: Comment not found
+ */
+router.put("/comments/:commentId", protect, updateComment);
+
+/**
+ * @swagger
+ * /api/tasks/comments/{commentId}:
+ *   delete:
+ *     summary: Delete a comment (author or admin only)
+ *     tags: [Comments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Comment deleted
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden — only the author or an admin can delete
+ *       404:
+ *         description: Comment not found
+ */
+router.delete("/comments/:commentId", protect, deleteComment);
 
 module.exports = router;

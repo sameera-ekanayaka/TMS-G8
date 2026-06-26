@@ -2,9 +2,48 @@
 // Handles task CRUD operations with real-time Socket.io notifications
 // Member 2 (Subanya)
 
-const { PrismaClient } = require("@prisma/client");
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
+const { notifyAdmins } = require("../services/socketService");
+
+// ════════ Helper: notify a user that a task was assigned to them ══════════════
+// Saves the notification and pushes a live event if the user is online.
+// createTask/updateTask use this so assigning from the form notifies people.
+const notifyAssignment = async (io, connectedUsers, assigneeId, task) => {
+  const message = `You have been assigned a new task: "${task.title}"`;
+  const dbNotification = await prisma.notification.create({
+    data: { message, userId: assigneeId, isRead: false, taskId: task.id },
+  });
+
+  if (io) {
+    // Use the server-authoritative user room (not the connectedUsers map)
+    io.to(`user:${assigneeId}`).emit("task_assigned", {
+      message,
+      task: {
+        id: task.id,
+        title: task.title,
+        priority: task.priority,
+        dueDate: task.dueDate,
+      },
+      id: dbNotification.id,
+      createdAt: dbNotification.createdAt,
+      isRead: false,
+      timestamp: new Date(),
+    });
+  }
+};
+
+// ════════ Helper: emit a task event only to people allowed to see it ═════════
+// Goes to managers (they see every task) + the task's assignees, instead of
+// io.emit() which sent every task to every connected client.
+const emitTaskEvent = (io, event, payload, assigneeIds = []) => {
+  if (!io) return;
+  let target = io.to("managers");
+  for (const id of assigneeIds) {
+    target = target.to(`user:${id}`);
+  }
+  target.emit(event, payload);
+};
 
 // ════════ POST /api/tasks ════════════════════════════════════════════════════
 // Create a new task
@@ -13,7 +52,7 @@ const prisma = new PrismaClient();
 // Returns: { message, task }
 const createTask = async (req, res) => {
   try {
-    const { title, description, priority, dueDate } = req.body;
+    const { title, description, priority, dueDate, assignedUserIds, projectId } = req.body;
     const userId = req.user.id; // From protect middleware
 
     // Validate required fields
@@ -21,6 +60,21 @@ const createTask = async (req, res) => {
       return res.status(400).json({
         error: "Validation Error",
         message: "Task title is required",
+      });
+    }
+
+    // A task must belong to a project — it cannot exist unassigned.
+    if (!projectId) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "A project must be assigned to the task",
+      });
+    }
+    const projectExists = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!projectExists) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: "Assigned project not found",
       });
     }
 
@@ -46,6 +100,32 @@ const createTask = async (req, res) => {
       }
     }
 
+    // Validate assigned users if provided
+    let validAssigneeIds = [];
+    if (assignedUserIds && Array.isArray(assignedUserIds)) {
+      for (const id of assignedUserIds) {
+        const parsedId = parseInt(id);
+        if (isNaN(parsedId) || parsedId <= 0) continue;
+        validAssigneeIds.push(parsedId);
+      }
+      
+      // Filter out duplicate IDs
+      validAssigneeIds = [...new Set(validAssigneeIds)];
+      
+      if (validAssigneeIds.length > 0) {
+        const existingUsers = await prisma.user.findMany({
+          where: { id: { in: validAssigneeIds }, isActive: true }
+        });
+        
+        if (existingUsers.length !== validAssigneeIds.length) {
+          return res.status(400).json({
+            error: "Validation Error",
+            message: "One or more assigned users are invalid or deactivated",
+          });
+        }
+      }
+    }
+
     // Create the task with defaults: status=TODO, priority=MEDIUM if not provided
     const newTask = await prisma.task.create({
       data: {
@@ -55,8 +135,13 @@ const createTask = async (req, res) => {
         status: "TODO",
         dueDate: dueDate ? new Date(dueDate) : null,
         createdById: userId,
+        projectId,
+        assignments: validAssigneeIds.length > 0 ? {
+          create: validAssigneeIds.map(id => ({ userId: id }))
+        } : undefined
       },
       include: {
+        project: { select: { id: true, name: true } },
         createdBy: {
           select: { id: true, name: true, email: true, role: true },
         },
@@ -66,8 +151,31 @@ const createTask = async (req, res) => {
           },
         },
         comments: true,
+        _count: { select: { comments: true, attachments: true } },
       },
     });
+
+    // notify the assignees (skip if the PM assigned it to themselves)
+    if (validAssigneeIds.length > 0) {
+      for (const assigneeId of validAssigneeIds) {
+        if (assigneeId !== userId) {
+          await notifyAssignment(req.io, req.connectedUsers, assigneeId, newTask);
+        }
+      }
+    }
+
+    const assigneeIds = newTask.assignments.map((a) => a.userId);
+    emitTaskEvent(req.io, "taskCreated", newTask, assigneeIds);
+
+    // Notify all admins about the new task (fire-and-forget)
+    const projectName = newTask.project ? newTask.project.name : "Unassigned";
+    const creatorName = newTask.createdBy ? newTask.createdBy.name : "Someone";
+    notifyAdmins(req.io, {
+      message: `New task created: "${newTask.title}" in project "${projectName}" by ${creatorName}`,
+      taskId: newTask.id,
+      actorId: userId,
+      event: "admin_update",
+    }).catch((e) => console.error("Admin task-create notification failed:", e.message));
 
     return res.status(201).json({
       message: "Task created successfully",
@@ -84,7 +192,7 @@ const createTask = async (req, res) => {
 
 // ════════ GET /api/tasks ════════════════════════════════════════════════════
 // Get all tasks (filtered by user role)
-// PROJECT_MANAGER: sees all tasks
+// PROJECT_MANAGER: sees tasks where project.managerId === req.user.id OR they are in the assignments
 // COLLABORATOR: sees only assigned tasks
 // Returns: { tasks }
 const getTasks = async (req, res) => {
@@ -103,13 +211,24 @@ const getTasks = async (req, res) => {
     }
 
     // Build sort object from query params
-    const validSortFields = ["createdAt", "dueDate", "priority", "status"];
+    const validSortFields = ["createdAt", "dueDate", "priority", "status", "project"];
     const sortField = sortBy && validSortFields.includes(sortBy) ? sortBy : "createdAt";
     const sortOrder = order === "asc" ? "asc" : "desc";
-    const orderBy = { [sortField]: sortOrder };
+
+    let orderBy;
+    if (sortField === "project") {
+      orderBy = {
+        project: {
+          name: sortOrder,
+        },
+      };
+    } else {
+      orderBy = { [sortField]: sortOrder };
+    }
 
     // Common include block
     const includeBlock = {
+      project: { select: { id: true, name: true } },
       createdBy: {
         select: { id: true, name: true, email: true, role: true },
       },
@@ -123,28 +242,64 @@ const getTasks = async (req, res) => {
           user: { select: { id: true, name: true, email: true } },
         },
       },
+      _count: { select: { comments: true, attachments: true } },
     };
 
-    let tasks;
+    let whereClause = { ...filters };
 
-    if (userRole === "PROJECT_MANAGER" || userRole === "ADMIN") {
-      tasks = await prisma.task.findMany({
-        where: filters,
-        include: includeBlock,
-        orderBy,
-      });
-    } else {
-      tasks = await prisma.task.findMany({
+    if (userRole === "PROJECT_MANAGER") {
+      whereClause.OR = [
+        {
+          project: {
+            managerId: userId,
+          },
+        },
+        {
+          assignments: {
+            some: {
+              userId: userId,
+            },
+          },
+        },
+      ];
+    } else if (userRole !== "ADMIN") {
+      // COLLABORATOR or other standard roles
+      // First, find all projectIds where the user has at least one assigned task
+      const userProjects = await prisma.project.findMany({
         where: {
-          ...filters,
+          tasks: {
+            some: {
+              assignments: {
+                some: { userId },
+              },
+            },
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+      const projectIds = userProjects.map((p) => p.id);
+
+      whereClause.OR = [
+        {
           assignments: {
             some: { userId },
           },
         },
-        include: includeBlock,
-        orderBy,
-      });
+        {
+          projectId: {
+            in: projectIds,
+          },
+        },
+      ];
     }
+
+    const tasks = await prisma.task.findMany({
+      where: whereClause,
+      include: includeBlock,
+      orderBy,
+    });
 
     return res.status(200).json({ tasks });
   } catch (error) {
@@ -178,6 +333,7 @@ const getTaskById = async (req, res) => {
     const task = await prisma.task.findUnique({
       where: { id: taskId },
       include: {
+        project: { select: { id: true, name: true } },
         createdBy: {
           select: { id: true, name: true, email: true, role: true },
         },
@@ -233,7 +389,7 @@ const getTaskById = async (req, res) => {
 const updateTask = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, priority, dueDate } = req.body;
+    const { title, description, priority, dueDate, assignedUserIds, projectId, status } = req.body;
 
     // Validate task ID
     const taskId = parseInt(id);
@@ -261,6 +417,14 @@ const updateTask = async (req, res) => {
       });
     }
 
+    // Validate status if provided
+    if (status && !["TODO", "IN_PROGRESS", "COMPLETED"].includes(status)) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "Status must be TODO, IN_PROGRESS, or COMPLETED",
+      });
+    }
+
     // Validate due date if it's being changed to a new value
     if (dueDate) {
       const dueDateObj = new Date(dueDate);
@@ -280,6 +444,61 @@ const updateTask = async (req, res) => {
       }
     }
 
+    // Validate assigned users if provided
+    let validAssigneeIds = [];
+    if (assignedUserIds !== undefined) {
+      if (Array.isArray(assignedUserIds)) {
+        for (const id of assignedUserIds) {
+          const parsedId = parseInt(id);
+          if (isNaN(parsedId) || parsedId <= 0) continue;
+          validAssigneeIds.push(parsedId);
+        }
+        
+        // Filter out duplicate IDs
+        validAssigneeIds = [...new Set(validAssigneeIds)];
+        
+        if (validAssigneeIds.length > 0) {
+          const existingUsers = await prisma.user.findMany({
+            where: { id: { in: validAssigneeIds }, isActive: true }
+          });
+          
+          if (existingUsers.length !== validAssigneeIds.length) {
+            return res.status(400).json({
+              error: "Validation Error",
+              message: "One or more assigned users are invalid or deactivated",
+            });
+          }
+        }
+      }
+    }
+
+    // Handle assignment if assignedUserIds is provided
+    let assignmentsUpdate = undefined;
+    let newAssigneeIds = []; // set only when assignment changes to a new user
+    let previousAssigneeIds = []; // so we can also update a removed assignee's board
+    
+    if (assignedUserIds !== undefined) {
+      // who was assigned before, so we don't re-notify the same person
+      const previousAssignments = await prisma.taskAssignment.findMany({
+        where: { taskId },
+        select: { userId: true },
+      });
+      previousAssigneeIds = previousAssignments.map((a) => a.userId);
+
+      // Clear existing assignments for this task
+      await prisma.taskAssignment.deleteMany({
+        where: { taskId },
+      });
+
+      if (validAssigneeIds.length > 0) {
+        assignmentsUpdate = {
+          create: validAssigneeIds.map(id => ({ userId: id }))
+        };
+        
+        newAssigneeIds = validAssigneeIds.filter(id => !previousAssigneeIds.includes(id));
+      }
+    }
+
     // Update the task
     const updatedTask = await prisma.task.update({
       where: { id: taskId },
@@ -287,9 +506,13 @@ const updateTask = async (req, res) => {
         title: title ? title.trim() : undefined,
         description: description ? description.trim() : undefined,
         priority: priority || undefined,
+        status: status || undefined,
         dueDate: dueDate ? new Date(dueDate) : undefined,
+        projectId: projectId !== undefined ? (projectId === "" ? null : projectId) : undefined,
+        assignments: assignmentsUpdate,
       },
       include: {
+        project: { select: { id: true, name: true } },
         createdBy: {
           select: { id: true, name: true, email: true, role: true },
         },
@@ -299,8 +522,34 @@ const updateTask = async (req, res) => {
           },
         },
         comments: true,
+        _count: { select: { comments: true, attachments: true } },
       },
     });
+
+    // notify the new assignees (skip self)
+    if (newAssigneeIds.length > 0) {
+      for (const assigneeId of newAssigneeIds) {
+        if (assigneeId !== req.user.id) {
+          await notifyAssignment(req.io, req.connectedUsers, assigneeId, updatedTask);
+        }
+      }
+    }
+
+    // include previous assignees too, so a removed person's board updates
+    const currentAssigneeIds = updatedTask.assignments.map((a) => a.userId);
+    const affectedAssigneeIds = [
+      ...new Set([...currentAssigneeIds, ...previousAssigneeIds]),
+    ];
+    emitTaskEvent(req.io, "taskUpdated", updatedTask, affectedAssigneeIds);
+
+    // Notify admins about the task update (fire-and-forget)
+    const updatedProjectName = updatedTask.project ? updatedTask.project.name : "Unassigned";
+    notifyAdmins(req.io, {
+      message: `Task "${updatedTask.title}" in project "${updatedProjectName}" was updated`,
+      taskId: updatedTask.id,
+      actorId: req.user.id,
+      event: "admin_update",
+    }).catch((e) => console.error("Admin task-update notification failed:", e.message));
 
     return res.status(200).json({
       message: "Task updated successfully",
@@ -332,8 +581,11 @@ const deleteTask = async (req, res) => {
       });
     }
 
-    // Check if task exists
-    const task = await prisma.task.findUnique({ where: { id: taskId } });
+    // load assignments too so we know whose board to update
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      include: { assignments: { select: { userId: true } } },
+    });
     if (!task) {
       return res.status(404).json({
         error: "Not Found",
@@ -341,8 +593,21 @@ const deleteTask = async (req, res) => {
       });
     }
 
+    const assigneeIds = task.assignments.map((a) => a.userId);
+    const deletedTaskTitle = task.title;
+
     // Delete the task (Prisma cascade delete handles assignments & comments)
     await prisma.task.delete({ where: { id: taskId } });
+
+    emitTaskEvent(req.io, "taskDeleted", taskId, assigneeIds);
+
+    // Notify admins about the deletion (fire-and-forget)
+    notifyAdmins(req.io, {
+      message: `Task "${deletedTaskTitle}" was deleted`,
+      taskId: null,
+      actorId: req.user.id,
+      event: "admin_update",
+    }).catch((e) => console.error("Admin task-delete notification failed:", e.message));
 
     return res.status(200).json({
       message: "Task deleted successfully",
@@ -444,6 +709,7 @@ const assignTask = async (req, res) => {
         message: notificationMessage,
         userId,
         isRead: false,
+        taskId,
       },
     });
     console.log(`✅ Persistent notification saved to DB for user ${userId}`);
@@ -547,6 +813,7 @@ const updateTaskStatus = async (req, res) => {
       where: { id: taskId },
       data: { status },
       include: {
+        project: { select: { id: true, name: true } },
         createdBy: {
           select: { id: true, name: true, email: true, role: true },
         },
@@ -556,13 +823,15 @@ const updateTaskStatus = async (req, res) => {
           },
         },
         comments: true,
+        _count: { select: { comments: true, attachments: true } },
       },
     });
 
     // ════════ Save notifications to database + emit real-time events ═════
     // Use for...of loop (not forEach) to properly await async operations
     const assignedUserIds = updatedTask.assignments.map((a) => a.userId);
-    const notificationMessage = `Task "${updatedTask.title}" status changed to ${updatedTask.status}`;
+    const statusProjectName = updatedTask.project ? updatedTask.project.name : "Unassigned";
+    const notificationMessage = `Task "${updatedTask.title}" (project: "${statusProjectName}") status changed to ${updatedTask.status}`;
 
     for (const assignedUserId of assignedUserIds) {
       // Save notification to database (persistent)
@@ -571,12 +840,13 @@ const updateTaskStatus = async (req, res) => {
           message: notificationMessage,
           userId: assignedUserId,
           isRead: false,
+          taskId: updatedTask.id,
         },
       });
 
-      // Emit real-time Socket.io event if user is online
-      if (io && connectedUsers[assignedUserId]) {
-        io.to(connectedUsers[assignedUserId]).emit("task_status_changed", {
+      // Emit real-time Socket.io event via user room (authoritative)
+      if (io) {
+        io.to(`user:${assignedUserId}`).emit("task_status_changed", {
           message: notificationMessage,
           task: {
             id: updatedTask.id,
@@ -584,15 +854,29 @@ const updateTaskStatus = async (req, res) => {
             status: updatedTask.status,
             priority: updatedTask.priority,
           },
+          id: dbNotification.id,
+          createdAt: dbNotification.createdAt,
+          isRead: false,
           timestamp: new Date(),
         });
-        // Emit general notification event
-        io.to(connectedUsers[assignedUserId]).emit("notification", dbNotification);
       }
     }
+
+    // Notify admins about the status change (fire-and-forget)
+    notifyAdmins(io, {
+      message: notificationMessage,
+      taskId: updatedTask.id,
+      actorId: userId,
+      event: "admin_update",
+    }).catch((e) => console.error("Admin status-change notification failed:", e.message));
+
     console.log(
       `✅ Persistent notifications saved + real-time events sent: Task ${taskId} status changed to ${status}`
     );
+
+    // push the updated task to managers + assignees. the per-user status
+    // events above still carry the message for the notification panel.
+    emitTaskEvent(req.io, "taskUpdated", updatedTask, assignedUserIds);
 
     return res.status(200).json({
       message: "Task status updated successfully",

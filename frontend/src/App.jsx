@@ -1,31 +1,59 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { TaskProvider } from "./context/TaskContext";
-import { SocketProvider } from "./context/SocketContext";  // ✅ This should work now
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Tasks from "./pages/Tasks";
-import Users from "./pages/Users";
-import ResetPassword from "./pages/ResetPassword";
-import KanbanBoard from "./components/kanban/KanbanBoard";
+import { SocketProvider } from "./context/SocketContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import Sidebar from "./components/common/Sidebar";
 import Navbar from "./components/common/Navbar";
 
+// Lazy-loaded routes
+const Login = lazy(() => import("./pages/Login"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Tasks = lazy(() => import("./pages/Tasks"));
+const Users = lazy(() => import("./pages/Users"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Projects = lazy(() => import("./pages/Projects"));
+
+// A simple loading fallback
+const PageLoader = () => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+    <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid var(--color-hairline)', borderTopColor: 'var(--color-primary)', animation: 'spin 0.8s linear infinite' }} />
+  </div>
+);
 function ProtectedRoute({ children, allowedRoles }) {
   const { token, user } = useAuth();
   if (!token) return <Navigate to="/login" replace />;
+  if (user?.mustResetPassword) return <Navigate to="/reset-password" replace />;
   if (allowedRoles && !allowedRoles.includes(user?.role)) return <Navigate to="/dashboard" replace />;
   return children;
 }
 
+function ResetPasswordRoute({ children }) {
+  const { token, user } = useAuth();
+  if (!token) return <Navigate to="/login" replace />;
+  if (!user?.mustResetPassword) return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
+function PublicRoute({ children }) {
+  const { token, user } = useAuth();
+  if (token) {
+    if (user?.mustResetPassword) return <Navigate to="/reset-password" replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
+
 function MainLayout({ children }) {
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex-1">
-        <Navbar />
-        <main className="p-6">
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--color-surface-soft)' }}>
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="flex-1 min-w-0 overflow-y-auto ed-scroll flex flex-col">
+        <Navbar onMenuClick={() => setSidebarOpen(true)} />
+        <main className="flex-1 w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {children}
         </main>
       </div>
@@ -36,8 +64,22 @@ function MainLayout({ children }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route 
+        path="/login" 
+        element={
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        } 
+      />
+      <Route 
+        path="/reset-password" 
+        element={
+          <ResetPasswordRoute>
+            <ResetPassword />
+          </ResetPasswordRoute>
+        } 
+      />
       <Route 
         path="/dashboard" 
         element={
@@ -55,10 +97,10 @@ function AppRoutes() {
         } 
       />
       <Route 
-        path="/kanban" 
+        path="/projects" 
         element={
           <ProtectedRoute>
-            <MainLayout><KanbanBoard /></MainLayout>
+            <MainLayout><Projects /></MainLayout>
           </ProtectedRoute>
         } 
       />
@@ -78,14 +120,19 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <SocketProvider>
-        <TaskProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </TaskProvider>
-      </SocketProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <SocketProvider>
+          <TaskProvider>
+            <BrowserRouter>
+              <Toaster position="top-right" />
+              <Suspense fallback={<PageLoader />}>
+                <AppRoutes />
+              </Suspense>
+            </BrowserRouter>
+          </TaskProvider>
+        </SocketProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getTasks, createTask, updateTask, deleteTask, updateTaskStatus } from '../services/api';
 import { useSocket } from './SocketContext';
+import { useAuth } from './AuthContext';
 
 const TaskContext = createContext();
 
@@ -13,15 +14,58 @@ export const TaskProvider = ({ children }) => {
   const [filters, setFilters] = useState({ status: '', priority: '', sortBy: 'dueDate', order: 'asc' });
   const { socket } = useSocket();
 
-  const token = localStorage.getItem('token');
+  const { token } = useAuth();
+
+  const backendToFrontendPriority = {
+    LOW: 'Low',
+    MEDIUM: 'Medium',
+    HIGH: 'High'
+  };
+
+  const backendToFrontendStatus = {
+    TODO: 'To Do',
+    IN_PROGRESS: 'In Progress',
+    COMPLETED: 'Completed'
+  };
+
+  // Helper to transform task data for UI consumption (assignedUsers, assignedUserIds)
+  const transformTask = (task) => {
+    if (!task) return task;
+    return {
+      ...task,
+      priority: backendToFrontendPriority[task.priority] || task.priority,
+      status: backendToFrontendStatus[task.status] || task.status,
+      assignedUsers: task.assignments?.map(a => a.user) || [],
+      assignedUserIds: task.assignments?.map(a => a.user?.id).filter(Boolean) || [],
+    };
+  };
 
   // Fetch tasks with filters
   const fetchTasks = async (filterParams = filters) => {
     if (!token) return;
     setLoading(true);
     try {
-      const response = await getTasks(token, filterParams);
-      setTasks(response.data);
+      // Map frontend filters to backend enums
+      const backendStatusMap = {
+        'To Do': 'TODO',
+        'In Progress': 'IN_PROGRESS',
+        'Completed': 'COMPLETED'
+      };
+      
+      const backendPriorityMap = {
+        'Low': 'LOW',
+        'Medium': 'MEDIUM',
+        'High': 'HIGH'
+      };
+
+      const mappedFilters = {
+        ...filterParams,
+        status: backendStatusMap[filterParams.status] || filterParams.status,
+        priority: backendPriorityMap[filterParams.priority] || filterParams.priority
+      };
+
+      const response = await getTasks(token, mappedFilters);
+      setTasks((response.data.tasks || []).map(transformTask));
       setError(null);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch tasks');
@@ -36,8 +80,13 @@ export const TaskProvider = ({ children }) => {
     if (!token) return;
     setLoading(true);
     try {
-      const response = await createTask(token, taskData);
-      setTasks(prev => [...prev, response.data]);
+      const payload = {
+        ...taskData,
+        priority: taskData.priority ? taskData.priority.toUpperCase() : undefined,
+        status: taskData.status ? (taskData.status === 'To Do' ? 'TODO' : taskData.status === 'In Progress' ? 'IN_PROGRESS' : 'COMPLETED') : undefined,
+      };
+      const response = await createTask(token, payload);
+      setTasks(prev => [...prev, transformTask(response.data.task)]);
       setError(null);
       return response.data;
     } catch (err) {
@@ -53,9 +102,14 @@ export const TaskProvider = ({ children }) => {
     if (!token) return;
     setLoading(true);
     try {
-      const response = await updateTask(token, taskId, taskData);
+      const payload = {
+        ...taskData,
+        priority: taskData.priority ? taskData.priority.toUpperCase() : undefined,
+        status: taskData.status ? (taskData.status === 'To Do' ? 'TODO' : taskData.status === 'In Progress' ? 'IN_PROGRESS' : 'COMPLETED') : undefined,
+      };
+      const response = await updateTask(token, taskId, payload);
       setTasks(prev => prev.map(task => 
-        task.id === taskId ? response.data : task
+        task.id === taskId ? transformTask(response.data.task) : task
       ));
       setError(null);
       return response.data;
@@ -86,13 +140,22 @@ export const TaskProvider = ({ children }) => {
   // Update task status
   const changeTaskStatus = async (taskId, status) => {
     if (!token) return;
+    
+    // Optimistically update UI immediately
+    setTasks(prev => prev.map(task => 
+      task.id === taskId ? { ...task, status: status } : task
+    ));
+
     try {
-      const response = await updateTaskStatus(token, taskId, status);
+      const backendStatus = status === 'To Do' ? 'TODO' : status === 'In Progress' ? 'IN_PROGRESS' : 'COMPLETED';
+      const response = await updateTaskStatus(token, taskId, backendStatus);
       setTasks(prev => prev.map(task => 
-        task.id === taskId ? response.data : task
+        task.id === taskId ? transformTask(response.data.task) : task
       ));
       return response.data;
     } catch (err) {
+      // Revert on error by refetching
+      fetchTasks();
       setError(err.response?.data?.message || 'Failed to update status');
       throw err;
     }
@@ -103,12 +166,12 @@ export const TaskProvider = ({ children }) => {
     if (!socket) return;
 
     socket.on('taskCreated', (newTask) => {
-      setTasks(prev => [...prev, newTask]);
+      setTasks(prev => [...prev, transformTask(newTask)]);
     });
 
     socket.on('taskUpdated', (updatedTask) => {
       setTasks(prev => prev.map(task => 
-        task.id === updatedTask.id ? updatedTask : task
+        task.id === updatedTask.id ? transformTask(updatedTask) : task
       ));
     });
 
@@ -116,17 +179,21 @@ export const TaskProvider = ({ children }) => {
       setTasks(prev => prev.filter(task => task.id !== taskId));
     });
 
-    socket.on('taskStatusChanged', ({ taskId, newStatus }) => {
-      setTasks(prev => prev.map(task => 
-        task.id === taskId ? { ...task, status: newStatus } : task
-      ));
+    socket.on('task_status_changed', (data) => {
+      const taskId = data.taskId || (data.task && data.task.id);
+      const newStatus = data.newStatus || (data.task && data.task.status);
+      if (taskId && newStatus) {
+        setTasks(prev => prev.map(task => 
+          task.id === taskId ? { ...task, status: backendToFrontendStatus[newStatus] || newStatus } : task
+        ));
+      }
     });
 
     return () => {
       socket.off('taskCreated');
       socket.off('taskUpdated');
       socket.off('taskDeleted');
-      socket.off('taskStatusChanged');
+      socket.off('task_status_changed');
     };
   }, [socket]);
 

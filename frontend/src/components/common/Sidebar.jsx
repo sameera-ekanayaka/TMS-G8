@@ -1,54 +1,121 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, List, Kanban, Users, LogOut } from 'lucide-react';
+import { LayoutDashboard, List, Folder, Users, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-const Sidebar = () => {
-  const { logout } = useAuth();
+const Sidebar = ({ open = false, onClose = () => {} }) => {
+  const { logout, user } = useAuth();
 
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/tasks', icon: List, label: 'Tasks' },
-    { path: '/kanban', icon: Kanban, label: 'Kanban' },
-    { path: '/users', icon: Users, label: 'Users' },
+    { path: '/projects', icon: Folder, label: 'Projects' },
+    // users page is admin only (the route is guarded too)
+    ...(user?.role === 'ADMIN'
+      ? [{ path: '/users', icon: Users, label: 'Users' }]
+      : []),
   ];
 
-  return (
-    <aside className="w-64 bg-white shadow-lg h-screen sticky top-0">
-      <div className="p-6 border-b">
-        <h1 className="text-xl font-bold text-blue-600">TMS</h1>
-        <p className="text-xs text-gray-500">Task Management System</p>
+  // Shared inner content. onNavigate fires after a link is clicked (used to close
+  // the mobile drawer).
+  const Inner = ({ onNavigate }) => (
+    <>
+      {/* Brand */}
+      <div
+        className="h-16 flex items-center px-6 shrink-0"
+        style={{ borderBottom: '1px solid var(--color-hairline)' }}
+      >
+        <div className="flex items-center gap-2.5">
+          <div
+            className="w-9 h-9 flex items-center justify-center shrink-0"
+            style={{ background: 'var(--color-primary)', borderRadius: 'var(--rounded-md)' }}
+          >
+            <span style={{ color: 'var(--color-on-primary)', fontWeight: 600, fontSize: 15 }}>T</span>
+          </div>
+          <div className="leading-tight">
+            <h1 style={{ color: 'var(--color-ink)', fontWeight: 600, fontSize: 16, margin: 0 }}>TaskHub</h1>
+            <p style={{ color: 'var(--color-muted)', fontSize: 11, margin: 0 }}>Task Management</p>
+          </div>
+        </div>
       </div>
-      
-      <nav className="p-4 space-y-2">
+
+      {/* Nav */}
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto ed-scroll">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
+            onClick={onNavigate}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-blue-50 text-blue-600 font-medium'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`
+              `relative flex items-center gap-3 px-3 py-2.5 transition-colors ${isActive ? 'ed-nav-active' : 'ed-nav-idle'}`
             }
+            style={{ borderRadius: 'var(--rounded-md)' }}
           >
-            <item.icon size={20} />
-            <span>{item.label}</span>
+            {({ isActive }) => (
+              <>
+                <span
+                  className="absolute left-0 top-1/2 -translate-y-1/2"
+                  style={{
+                    width: 3,
+                    height: isActive ? 20 : 0,
+                    background: 'var(--color-primary)',
+                    borderRadius: '0 var(--rounded-full) var(--rounded-full) 0',
+                    transition: 'height 0.15s ease',
+                  }}
+                />
+                <item.icon size={19} style={{ color: isActive ? 'var(--color-ink)' : 'var(--color-muted)', flexShrink: 0 }} />
+                <span style={{ color: isActive ? 'var(--color-ink)' : 'var(--color-body)', fontWeight: isActive ? 500 : 400, fontSize: 14 }}>
+                  {item.label}
+                </span>
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
 
-      <div className="absolute bottom-0 w-64 p-4 border-t">
+      {/* Logout */}
+      <div className="px-3 py-3 shrink-0" style={{ borderTop: '1px solid var(--color-hairline)' }}>
         <button
           onClick={logout}
-          className="flex items-center gap-3 px-4 py-3 w-full text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          className="ed-logout flex items-center gap-3 w-full px-3 py-2.5 transition-colors"
+          style={{ color: 'var(--color-danger)', borderRadius: 'var(--rounded-md)' }}
         >
-          <LogOut size={20} />
-          <span>Logout</span>
+          <LogOut size={19} style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: 14, fontWeight: 500 }}>Logout</span>
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop: static sidebar (md and up) */}
+      <aside
+        className="hidden md:flex flex-col w-[248px] shrink-0 h-screen"
+        style={{ background: 'var(--color-canvas)', borderRight: '1px solid var(--color-hairline)' }}
+      >
+        <Inner onNavigate={() => {}} />
+      </aside>
+
+      {/* Mobile: slide-in drawer + backdrop (below md) */}
+      <div className={`md:hidden fixed inset-0 z-40 ${open ? '' : 'pointer-events-none'}`} aria-hidden={!open}>
+        <div
+          className="absolute inset-0 transition-opacity duration-200"
+          style={{ background: 'rgba(24,29,38,0.45)', opacity: open ? 1 : 0 }}
+          onClick={onClose}
+        />
+        <aside
+          className="absolute left-0 top-0 h-full w-[248px] flex flex-col transition-transform duration-200"
+          style={{
+            background: 'var(--color-canvas)',
+            borderRight: '1px solid var(--color-hairline)',
+            transform: open ? 'translateX(0)' : 'translateX(-100%)',
+          }}
+        >
+          <Inner onNavigate={onClose} />
+        </aside>
+      </div>
+    </>
   );
 };
 

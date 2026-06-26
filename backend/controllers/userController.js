@@ -4,10 +4,10 @@
 
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
-const { PrismaClient } = require("@prisma/client");
 const { sendOnboardingEmail } = require("../services/emailService");
+const { sendUserNotification } = require("../services/socketService");
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
 
 // ─── GET /api/users ───────────────────────────────────────────
 // Returns all users (excluding passwords)
@@ -143,23 +143,20 @@ const createUser = async (req, res) => {
       },
     });
 
-    // Send onboarding email with temp password
-    // We wrap in try/catch so a failed email doesn't block the response
-    try {
-      await sendOnboardingEmail({
-        to: email,
-        name,
-        email,
-        tempPassword, // plain text — only time we use it
-        role,
-      });
-    } catch (emailError) {
-      // Log the error but still return success — user was created
-      console.error("Onboarding email failed:", emailError.message);
-    }
+    // Send onboarding email in the background (fire-and-forget) so SMTP delays/blocks don't freeze the UI
+    sendOnboardingEmail({
+      to: email,
+      name,
+      email,
+      tempPassword,
+      role,
+    }).catch((emailError) => {
+      console.error("Onboarding email background failure:", emailError.message);
+    });
 
     return res.status(201).json({
-      message: "User created successfully. Onboarding email sent.",
+      message: "User created successfully.",
+      tempPassword, // Returned as a fallback in case the email fails to deliver
       user: newUser,
     });
   } catch (error) {
@@ -205,6 +202,28 @@ const updateUser = async (req, res) => {
       });
     }
 
+    // Prevent any admin from editing another admin's account.
+    // An admin may still edit their own profile (id match is allowed).
+    if (existing.role === "ADMIN" && existing.id !== req.user.id) {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "An admin cannot edit another admin's account.",
+      });
+    }
+
+    // don't let the last active admin be demoted, or nobody can manage users
+    if (role && existing.role === "ADMIN" && role !== "ADMIN") {
+      const activeAdminCount = await prisma.user.count({
+        where: { role: "ADMIN", isActive: true },
+      });
+      if (activeAdminCount <= 1) {
+        return res.status(400).json({
+          error: "Validation Error",
+          message: "Cannot change the role of the last active admin.",
+        });
+      }
+    }
+
     // If email is changing, validate format then check uniqueness
     if (email && email !== existing.email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -243,6 +262,27 @@ const updateUser = async (req, res) => {
       },
     });
 
+    // Administrative update: notify the user when their role changes (SRS).
+    // Fire-and-forget so a notification failure never breaks the update.
+    if (role && role !== existing.role) {
+      const readableRole = role.replace(/_/g, " ").toLowerCase();
+      sendUserNotification(
+        req.io,
+        req.connectedUsers,
+        userId,
+        `Your role was changed to ${readableRole}. Please log out and log back in to apply it.`
+      ).catch((e) => console.error("Role-change notification failed:", e.message));
+
+      // The role is baked into the JWT + the cached client session, so the new
+      // role only fully applies after re-login. Tell the live session to log out.
+      if (req.io) {
+        req.io.to(`user:${userId}`).emit("force_logout", {
+          reason: "role_changed",
+          message: `Your role was changed to ${readableRole}. Please log in again to continue.`,
+        });
+      }
+    }
+
     return res.status(200).json({
       message: "User updated successfully.",
       user: updatedUser,
@@ -276,6 +316,14 @@ const deactivateUser = async (req, res) => {
       return res.status(404).json({
         error: "Not Found",
         message: "User not found.",
+      });
+    }
+
+    // Prevent any admin from deactivating another admin's account.
+    if (user.role === "ADMIN") {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "An admin cannot deactivate another admin's account.",
       });
     }
 
@@ -341,6 +389,67 @@ const activateUser = async (req, res) => {
   }
 };
 
+// ─── DELETE /api/users/:id ───────────────────────────
+// Admin permanently deletes a user. Only a *deactivated* user can be deleted
+// (deactivate first), since a hard delete cascades — it also removes the tasks
+// that user created, plus their comments, attachments, assignments, and
+// notifications (managed projects just have their manager cleared).
+const deleteUser = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+
+    if (userId === req.user.id) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "You cannot delete your own account.",
+      });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: "User not found.",
+      });
+    }
+
+    // Prevent any admin from deleting another admin's account.
+    if (user.role === "ADMIN") {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "An admin cannot delete another admin's account.",
+      });
+    }
+
+    if (user.isActive) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "Deactivate the user before permanently deleting them.",
+      });
+    }
+
+    // Preserve the user's created work: their created tasks (and any projects they
+    // managed) cascade-delete with the user, so reassign them to the acting admin
+    // first. Their own contributions (assignments, comments, attachments,
+    // notifications) still cascade away with the account.
+    await prisma.$transaction([
+      prisma.task.updateMany({ where: { createdById: userId }, data: { createdById: req.user.id } }),
+      prisma.project.updateMany({ where: { managerId: userId }, data: { managerId: req.user.id } }),
+      prisma.user.delete({ where: { id: userId } }),
+    ]);
+
+    return res.status(200).json({
+      message: "User permanently deleted. Their tasks and projects were reassigned to you.",
+    });
+  } catch (error) {
+    console.error("Delete user error:", error);
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to delete user.",
+    });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getUserById,
@@ -348,4 +457,5 @@ module.exports = {
   updateUser,
   deactivateUser,
   activateUser,
+  deleteUser,
 };

@@ -1,9 +1,9 @@
 // backend/controllers/attachmentController.js
 const path = require("path");
 const fs = require("fs");
-const { PrismaClient } = require("@prisma/client");
 
-const prisma = new PrismaClient();
+const prisma = require("../lib/prisma");
+const { notifyTaskParticipants, notifyAdmins } = require("../services/socketService");
 
 // POST /api/tasks/:id/attachments
 const uploadAttachment = async (req, res) => {
@@ -23,7 +23,10 @@ const uploadAttachment = async (req, res) => {
     // Check task exists
     const task = await prisma.task.findUnique({
       where: { id: taskId },
-      include: { assignments: true },
+      include: {
+        assignments: true,
+        project: { select: { id: true, name: true, managerId: true } },
+      },
     });
 
     if (!task) {
@@ -54,6 +57,34 @@ const uploadAttachment = async (req, res) => {
         user: { select: { id: true, name: true, email: true } },
       },
     });
+
+    // Notify the task's participants (assignees + project manager) about the new
+    // attachment. Fire-and-forget so it never blocks the upload response.
+    (async () => {
+      try {
+        const attachProjectName = task.project ? task.project.name : "Unassigned";
+        const attachMessage = `A new attachment "${req.file.originalname}" was added to "${task.title}" (project: "${attachProjectName}")`;
+
+        await notifyTaskParticipants(req.io, req.connectedUsers, {
+          taskId,
+          assigneeIds: task.assignments.map((a) => a.userId),
+          managerId: task.project?.managerId,
+          actorId: userId,
+          message: attachMessage,
+          event: "attachment_added",
+        });
+
+        // Notify admins too
+        await notifyAdmins(req.io, {
+          message: attachMessage,
+          taskId,
+          actorId: userId,
+          event: "attachment_added",
+        });
+      } catch (e) {
+        console.error("Attachment notification failed:", e.message);
+      }
+    })();
 
     return res.status(201).json({
       message: "File uploaded successfully",
@@ -105,4 +136,69 @@ const getAttachments = async (req, res) => {
   }
 };
 
-module.exports = { uploadAttachment, getAttachments };
+// DELETE /api/tasks/attachments/:attachmentId
+// Delete an attachment
+// Only the attachment's author or ADMIN can delete
+// Returns: { message }
+const deleteAttachment = async (req, res) => {
+  try {
+    const { attachmentId } = req.params;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const id = parseInt(attachmentId);
+    if (isNaN(id)) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "Attachment ID must be a valid number",
+      });
+    }
+
+    const attachment = await prisma.attachment.findUnique({
+      where: { id },
+    });
+
+    if (!attachment) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: "Attachment not found",
+      });
+    }
+
+    if (attachment.userId !== userId && userRole !== "ADMIN") {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "You can only delete your own attachments",
+      });
+    }
+
+    // Delete database entry first
+    await prisma.attachment.delete({
+      where: { id },
+    });
+
+    // Delete the file from the uploads directory
+    const filePath = path.join(__dirname, "..", "uploads", attachment.storedAs);
+    fs.unlink(filePath, (err) => {
+      if (err) {
+        console.error(`Failed to delete file from disk at ${filePath}:`, err);
+      }
+    });
+
+    return res.status(200).json({
+      message: "Attachment deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete attachment error:", error);
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to delete attachment",
+    });
+  }
+};
+
+module.exports = {
+  uploadAttachment,
+  getAttachments,
+  deleteAttachment,
+};

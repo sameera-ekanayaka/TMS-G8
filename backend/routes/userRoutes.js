@@ -11,12 +11,12 @@ const {
   updateUser,
   deactivateUser,
   activateUser,
+  deleteUser,
 } = require("../controllers/userController");
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
-// All user routes require a valid JWT + ADMIN role
+// All user routes require a valid JWT
 router.use(protect);
-router.use(authorizeRoles("ADMIN"));
 
 /**
  * @swagger
@@ -39,7 +39,9 @@ router.use(authorizeRoles("ADMIN"));
  *       403:
  *         description: Not authorized (Admin only)
  */
-router.get("/", getAllUsers);
+// Admins manage users; Project Managers need the roster to assign tasks.
+// Collaborators do not — they cannot enumerate the user directory.
+router.get("/", authorizeRoles("ADMIN", "PROJECT_MANAGER"), getAllUsers);
 
 /**
  * @swagger
@@ -59,7 +61,7 @@ router.get("/", getAllUsers);
  *       404:
  *         description: User not found
  */
-router.get("/:id", getUserById);
+router.get("/:id", authorizeRoles("ADMIN", "PROJECT_MANAGER"), getUserById);
 
 /**
  * @swagger
@@ -90,7 +92,7 @@ router.get("/:id", getUserById);
  *       400:
  *         description: Validation error or email already exists
  */
-router.post("/", createUser);
+router.post("/", authorizeRoles("ADMIN"), createUser);
 
 /**
  * @swagger
@@ -123,7 +125,7 @@ router.post("/", createUser);
  *       404:
  *         description: User not found
  */
-router.put("/:id", updateUser);
+router.put("/:id", authorizeRoles("ADMIN"), updateUser);
 
 /**
  * @swagger
@@ -145,7 +147,7 @@ router.put("/:id", updateUser);
  *       404:
  *         description: User not found
  */
-router.patch("/:id/deactivate", deactivateUser);
+router.patch("/:id/deactivate", authorizeRoles("ADMIN"), deactivateUser);
 
 /**
  * @swagger
@@ -167,6 +169,28 @@ router.patch("/:id/deactivate", deactivateUser);
  *       404:
  *         description: User not found
  */
-router.patch("/:id/activate", activateUser);
+router.patch("/:id/activate", authorizeRoles("ADMIN"), activateUser);
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   delete:
+ *     summary: Permanently delete a user (Admin only — must be deactivated first)
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: User permanently deleted
+ *       400:
+ *         description: User is still active, or self-delete attempt
+ *       404:
+ *         description: User not found
+ */
+router.delete("/:id", authorizeRoles("ADMIN"), deleteUser);
 
 module.exports = router;
