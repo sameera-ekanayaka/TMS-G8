@@ -4,6 +4,7 @@
 
 
 const prisma = require("../lib/prisma");
+const xss = require("xss");
 const { notifyTaskParticipants, notifyAdmins } = require("../services/socketService");
 
 // ════════ HELPER FUNCTION ═══════════════════════════════════════════════════
@@ -64,8 +65,9 @@ const validateTaskAccessAndGetTask = async (req, res, taskIdParam) => {
 // Returns: { message, comment }
 const createComment = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { content } = req.body;
+    const taskId = parseInt(req.params.id);
+    let { content } = req.body;
+    if (content) content = xss(content);
     const userId = req.user.id; // From protect middleware
     const io = req.io; // Socket.io instance from server.js
     const connectedUsers = req.connectedUsers; // Connected users map
@@ -79,7 +81,7 @@ const createComment = async (req, res) => {
     }
 
     // Validate task access and get task
-    const task = await validateTaskAccessAndGetTask(req, res, id);
+    const task = await validateTaskAccessAndGetTask(req, res, req.params.id);
     if (!task) return; // Error already sent by helper
 
     // Create the comment
@@ -208,8 +210,9 @@ const getCommentsByTaskId = async (req, res) => {
 // Returns: { message, comment }
 const updateComment = async (req, res) => {
   try {
-    const { commentId } = req.params;
-    const { content } = req.body;
+    const commentId = parseInt(req.params.commentId);
+    let { content } = req.body;
+    if (content) content = xss(content);
     const userId = req.user.id;
     const userRole = req.user.role;
 

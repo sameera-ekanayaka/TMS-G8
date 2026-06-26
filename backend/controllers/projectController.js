@@ -3,6 +3,7 @@
 // Member 1 (Sameera)
 
 const prisma = require("../lib/prisma");
+const xss = require("xss");
 const { sendUserNotification } = require("../services/socketService");
 
 // ════════ POST /api/projects ═════════════════════════════════════════════════
@@ -10,7 +11,9 @@ const { sendUserNotification } = require("../services/socketService");
 // Body: { name, description, managerId }
 const createProject = async (req, res) => {
   try {
-    const { name, description, managerId } = req.body;
+    let { name, description, managerId } = req.body;
+    if (name) name = xss(name);
+    if (description) description = xss(description);
 
     if (!name || name.trim() === "") {
       return res.status(400).json({
@@ -202,7 +205,9 @@ const getProjectById = async (req, res) => {
 const updateProject = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, managerId } = req.body;
+    let { name, description, managerId } = req.body;
+    if (name) name = xss(name);
+    if (description) description = xss(description);
 
     const existingProject = await prisma.project.findUnique({
       where: { id },
