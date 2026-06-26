@@ -261,8 +261,17 @@ const updateUser = async (req, res) => {
         req.io,
         req.connectedUsers,
         userId,
-        `An administrator changed your role to ${readableRole}.`
+        `Your role was changed to ${readableRole}. Please log out and log back in to apply it.`
       ).catch((e) => console.error("Role-change notification failed:", e.message));
+
+      // The role is baked into the JWT + the cached client session, so the new
+      // role only fully applies after re-login. Tell the live session to log out.
+      if (req.io) {
+        req.io.to(`user:${userId}`).emit("force_logout", {
+          reason: "role_changed",
+          message: `Your role was changed to ${readableRole}. Please log in again to continue.`,
+        });
+      }
     }
 
     return res.status(200).json({
@@ -394,10 +403,18 @@ const deleteUser = async (req, res) => {
       });
     }
 
-    await prisma.user.delete({ where: { id: userId } });
+    // Preserve the user's created work: their created tasks (and any projects they
+    // managed) cascade-delete with the user, so reassign them to the acting admin
+    // first. Their own contributions (assignments, comments, attachments,
+    // notifications) still cascade away with the account.
+    await prisma.$transaction([
+      prisma.task.updateMany({ where: { createdById: userId }, data: { createdById: req.user.id } }),
+      prisma.project.updateMany({ where: { managerId: userId }, data: { managerId: req.user.id } }),
+      prisma.user.delete({ where: { id: userId } }),
+    ]);
 
     return res.status(200).json({
-      message: "User permanently deleted.",
+      message: "User permanently deleted. Their tasks and projects were reassigned to you.",
     });
   } catch (error) {
     console.error("Delete user error:", error);

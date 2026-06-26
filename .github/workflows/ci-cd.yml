@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# Only one deploy per ref at a time — a newer push cancels an in-flight run so
+# rapid successive merges don't race to deploy stale images to Azure.
+concurrency:
+  group: cicd-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
   IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/tms-backend
