@@ -11,7 +11,7 @@ import {
 import toast from "react-hot-toast";
 
 export default function Users() {
-  const { token } = useAuth();
+  const { token, user: currentUser } = useAuth();
 
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
@@ -54,6 +54,10 @@ export default function Users() {
     const matchesRole = roleFilter === "ALL" || user.role === roleFilter;
     return matchesSearch && matchesRole;
   });
+
+  // True when the target row is an admin AND is not the currently logged-in user.
+  // Used to hide destructive actions — admins cannot act on peer admins.
+  const isOtherAdmin = (u) => u.role === "ADMIN" && u.id !== currentUser?.id;
 
   function openCreateModal() {
     setEditingUser(null);
@@ -256,13 +260,17 @@ export default function Users() {
 
                 {/* Right: Actions */}
                 <div className="flex items-center gap-2 w-full sm:w-auto sm:justify-end shrink-0">
-                  <button onClick={() => openEditModal(user)} className="ed-btn ed-btn-secondary ed-btn-sm">
-                    Edit
-                  </button>
-                  {user.isActive ? (
-                    <button onClick={() => handleDeactivate(user.id)} className="ed-btn ed-btn-danger ed-btn-sm">
-                      Deactivate
+                  {!isOtherAdmin(user) && (
+                    <button onClick={() => openEditModal(user)} className="ed-btn ed-btn-secondary ed-btn-sm">
+                      Edit
                     </button>
+                  )}
+                  {user.isActive ? (
+                    !isOtherAdmin(user) && (
+                      <button onClick={() => handleDeactivate(user.id)} className="ed-btn ed-btn-danger ed-btn-sm">
+                        Deactivate
+                      </button>
+                    )
                   ) : (
                     <>
                       <button
@@ -272,14 +280,16 @@ export default function Users() {
                       >
                         Activate
                       </button>
-                      <button
-                        onClick={() => handleDelete(user.id)}
-                        className="ed-btn ed-btn-sm"
-                        style={{ background: 'var(--color-danger)', color: '#fff', border: '1px solid var(--color-danger)' }}
-                        title="Permanently delete this deactivated user"
-                      >
-                        Delete
-                      </button>
+                      {!isOtherAdmin(user) && (
+                        <button
+                          onClick={() => handleDelete(user.id)}
+                          className="ed-btn ed-btn-sm"
+                          style={{ background: 'var(--color-danger)', color: '#fff', border: '1px solid var(--color-danger)' }}
+                          title="Permanently delete this deactivated user"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
