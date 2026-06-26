@@ -10,7 +10,7 @@ const StatCard = ({ title, value, icon, accentColor }) => (
     border: '1px solid var(--color-hairline)',
     padding: 'var(--space-xl)',                 /* 32px */
     flex: 1,
-    minWidth: 0,
+    minWidth: 150,
   }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
       <div>
@@ -140,7 +140,7 @@ const Dashboard = () => {
         </div>
 
         {/* ── Content Grid ── */}
-        <div style={styles.contentGrid}>
+        <div className="ed-dash-grid">
 
           {/* Progress Card */}
           <div style={styles.card}>

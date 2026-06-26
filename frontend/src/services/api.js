@@ -48,6 +48,9 @@ export const resetPassword = (authToken, tempPassword, newPassword) =>
 export const forgotPassword = (email) =>
   api.post("/api/auth/forgot-password", { email });
 
+export const changePassword = (token, currentPassword, newPassword) =>
+  api.post("/api/auth/change-password", { currentPassword, newPassword }, authHeader(token));
+
 // ════════ USER ENDPOINTS ════════════════════════════════════════════════════
 export const getUsers = (token) => api.get("/api/users", authHeader(token));
 export const createUser = (token, data) => api.post("/api/users", data, authHeader(token));

@@ -201,4 +201,57 @@ const getMe = async (req, res) => {
   return res.status(200).json({ user: req.user });
 };
 
-module.exports = { login, resetPassword, getMe, forgotPassword };
+// ─── POST /api/auth/change-password ───────────────────────────
+// Authenticated. Body: { currentPassword, newPassword }. Lets a logged-in user
+// voluntarily change their own password (distinct from the temp-password reset).
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "currentPassword and newPassword are required",
+      });
+    }
+
+    const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])(.{8,})$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "Password must be at least 8 characters and include an uppercase letter, a number, and a special character (!@#$%^&*)",
+      });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: "Not Found", message: "User not found" });
+    }
+
+    const isValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isValid) {
+      return res.status(401).json({ error: "Unauthorized", message: "Current password is incorrect" });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({
+        error: "Validation Error",
+        message: "New password must be different from the current password.",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword, mustResetPassword: false },
+    });
+
+    return res.status(200).json({ message: "Password changed successfully." });
+  } catch (error) {
+    console.error("Change password error:", error);
+    return res.status(500).json({ error: "Internal Server Error", message: "Failed to change password." });
+  }
+};
+
+module.exports = { login, resetPassword, getMe, forgotPassword, changePassword };

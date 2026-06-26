@@ -39,11 +39,12 @@ function PublicRoute({ children }) {
 }
 
 function MainLayout({ children }) {
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: 'var(--color-surface-soft)' }}>
-      <Sidebar />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 min-w-0 overflow-y-auto ed-scroll flex flex-col">
-        <Navbar />
+        <Navbar onMenuClick={() => setSidebarOpen(true)} />
         <main className="flex-1 w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {children}
         </main>
