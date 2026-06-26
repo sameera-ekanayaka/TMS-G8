@@ -59,8 +59,54 @@ const notifyTaskParticipants = async (
   }
 };
 
+// ── notifyAdmins ──────────────────────────────────────────────────────────────
+// Persist a notification for ALL active ADMIN users and push it live via socket.
+//
+// Options:
+//   message  — notification text (should mention task title + project for clarity)
+//   taskId   — optional; links the notification to a task so the frontend can
+//              navigate directly to it when the bell item is clicked
+//   actorId  — optional; skip this user so an admin who performed the action
+//              does not receive a redundant self-notification
+//   event    — socket event name (default: "admin_update")
+//
+// Called fire-and-forget from controllers — errors are caught internally so
+// they never break the HTTP response.
+const notifyAdmins = async (
+  io,
+  { message, taskId = null, actorId = null, event = "admin_update" }
+) => {
+  try {
+    const admins = await prisma.user.findMany({
+      where: { role: "ADMIN", isActive: true },
+      select: { id: true },
+    });
+
+    for (const admin of admins) {
+      if (actorId && admin.id === actorId) continue; // never self-notify
+
+      const dbNotification = await prisma.notification.create({
+        data: { message, userId: admin.id, isRead: false, taskId },
+      });
+
+      if (io) {
+        io.to(`user:${admin.id}`).emit(event, {
+          message,
+          taskId,
+          id: dbNotification.id,
+          createdAt: dbNotification.createdAt,
+          isRead: false,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[notifyAdmins] Failed:", err.message);
+  }
+};
+
 module.exports = {
   initializeSocket,
   sendUserNotification,
   notifyTaskParticipants,
+  notifyAdmins,
 };

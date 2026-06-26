@@ -4,7 +4,7 @@
 
 
 const prisma = require("../lib/prisma");
-const { notifyTaskParticipants } = require("../services/socketService");
+const { notifyTaskParticipants, notifyAdmins } = require("../services/socketService");
 
 // ════════ HELPER FUNCTION ═══════════════════════════════════════════════════
 // Validates task ID, checks task exists, and verifies user permission
@@ -104,7 +104,8 @@ const createComment = async (req, res) => {
     recipientIds.delete(userId); // never notify the commenter themselves
 
     const contentPreview = content.length > 50 ? content.substring(0, 50) + "..." : content;
-    const notificationMessage = `New comment on "${task.title}": "${contentPreview}"`;
+    const projectName = task.project ? task.project.name : "Unassigned";
+    const notificationMessage = `New comment on "${task.title}" (project: "${projectName}"): "${contentPreview}"`;
 
     // Use for...of loop (not forEach) to properly await async operations
     for (const assignedUserId of recipientIds) {
@@ -141,6 +142,15 @@ const createComment = async (req, res) => {
         }
       }
     }
+
+    // Notify all admins about the new comment (fire-and-forget)
+    notifyAdmins(io, {
+      message: notificationMessage,
+      taskId: task.id,
+      actorId: userId,
+      event: "comment_added",
+    }).catch((e) => console.error("Admin comment notification failed:", e.message));
+
     console.log(`✅ Persistent notifications saved + real-time events sent: Comment added to task ${task.id}`);
 
     return res.status(201).json({
@@ -254,15 +264,26 @@ const updateComment = async (req, res) => {
       try {
         const task = await prisma.task.findUnique({
           where: { id: comment.taskId },
-          include: { assignments: true, project: { select: { managerId: true } } },
+          include: { assignments: true, project: { select: { id: true, name: true, managerId: true } } },
         });
         if (task) {
+          const editProjectName = task.project ? task.project.name : "Unassigned";
+          const editMessage = `A comment was edited on "${task.title}" (project: "${editProjectName}")`;
+
           await notifyTaskParticipants(req.io, req.connectedUsers, {
             taskId: task.id,
             assigneeIds: task.assignments.map((a) => a.userId),
             managerId: task.project?.managerId,
             actorId: userId,
-            message: `A comment was edited on "${task.title}"`,
+            message: editMessage,
+            event: "comment_added",
+          });
+
+          // Also notify admins
+          await notifyAdmins(req.io, {
+            message: editMessage,
+            taskId: task.id,
+            actorId: userId,
             event: "comment_added",
           });
         }

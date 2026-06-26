@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 
 const prisma = require("../lib/prisma");
-const { notifyTaskParticipants } = require("../services/socketService");
+const { notifyTaskParticipants, notifyAdmins } = require("../services/socketService");
 
 // POST /api/tasks/:id/attachments
 const uploadAttachment = async (req, res) => {
@@ -23,7 +23,10 @@ const uploadAttachment = async (req, res) => {
     // Check task exists
     const task = await prisma.task.findUnique({
       where: { id: taskId },
-      include: { assignments: true, project: { select: { managerId: true } } },
+      include: {
+        assignments: true,
+        project: { select: { id: true, name: true, managerId: true } },
+      },
     });
 
     if (!task) {
@@ -59,12 +62,23 @@ const uploadAttachment = async (req, res) => {
     // attachment. Fire-and-forget so it never blocks the upload response.
     (async () => {
       try {
+        const attachProjectName = task.project ? task.project.name : "Unassigned";
+        const attachMessage = `A new attachment "${req.file.originalname}" was added to "${task.title}" (project: "${attachProjectName}")`;
+
         await notifyTaskParticipants(req.io, req.connectedUsers, {
           taskId,
           assigneeIds: task.assignments.map((a) => a.userId),
           managerId: task.project?.managerId,
           actorId: userId,
-          message: `A new attachment was added to "${task.title}"`,
+          message: attachMessage,
+          event: "attachment_added",
+        });
+
+        // Notify admins too
+        await notifyAdmins(req.io, {
+          message: attachMessage,
+          taskId,
+          actorId: userId,
           event: "attachment_added",
         });
       } catch (e) {

@@ -5,6 +5,7 @@
 
 
 const prisma = require("../lib/prisma");
+const { notifyAdmins } = require("./socketService");
 
 // ════════ Check Deadline and Create Notifications ════════════════════════
 // This function:
@@ -36,6 +37,7 @@ const checkAndNotifyDeadlines = async (io, connectedUsers) => {
             user: { select: { id: true, name: true, email: true } },
           },
         },
+        project: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
       },
     });
@@ -67,7 +69,8 @@ const checkAndNotifyDeadlines = async (io, connectedUsers) => {
           (task.dueDate - now) / (60 * 60 * 1000)
         );
 
-        const message = `Task "${task.title}" is due soon (in ${hoursUntilDeadline} hours)`;
+        const deadlineProjectName = task.project ? task.project.name : "Unassigned";
+        const message = `Task "${task.title}" (project: "${deadlineProjectName}") is due soon (in ${hoursUntilDeadline} hours)`;
 
         // Create notification for each assigned user
         for (const assignment of task.assignments) {
@@ -112,8 +115,8 @@ const checkAndNotifyDeadlines = async (io, connectedUsers) => {
         if (task.createdById) {
           const assigneeNames = task.assignments.map((a) => a.user.name).join(", ");
           const creatorMessage = task.assignments.length > 0
-            ? `Task "${task.title}" (assigned to ${assigneeNames}) is due soon (in ${hoursUntilDeadline} hours)`
-            : `Task "${task.title}" (unassigned) is due soon (in ${hoursUntilDeadline} hours)`;
+            ? `Task "${task.title}" (project: "${deadlineProjectName}", assigned to ${assigneeNames}) is due soon (in ${hoursUntilDeadline} hours)`
+            : `Task "${task.title}" (project: "${deadlineProjectName}", unassigned) is due soon (in ${hoursUntilDeadline} hours)`;
 
           const creatorNotification = await prisma.notification.create({
             data: {
@@ -142,6 +145,14 @@ const checkAndNotifyDeadlines = async (io, connectedUsers) => {
             io.to(connectedUsers[task.createdById]).emit("notification", creatorNotification);
           }
         }
+
+        // Notify all admins about the approaching deadline (fire-and-forget)
+        notifyAdmins(io, {
+          message,
+          taskId: task.id,
+          actorId: null, // system-triggered, no actor to exclude
+          event: "deadline_approaching",
+        }).catch((e) => console.error("Admin deadline notification failed:", e.message));
       }
     }
 

@@ -4,6 +4,7 @@
 
 
 const prisma = require("../lib/prisma");
+const { notifyAdmins } = require("../services/socketService");
 
 // ════════ Helper: notify a user that a task was assigned to them ══════════════
 // Saves the notification and pushes a live event if the user is online.
@@ -14,8 +15,9 @@ const notifyAssignment = async (io, connectedUsers, assigneeId, task) => {
     data: { message, userId: assigneeId, isRead: false, taskId: task.id },
   });
 
-  if (io && connectedUsers && connectedUsers[assigneeId]) {
-    io.to(connectedUsers[assigneeId]).emit("task_assigned", {
+  if (io) {
+    // Use the server-authoritative user room (not the connectedUsers map)
+    io.to(`user:${assigneeId}`).emit("task_assigned", {
       message,
       task: {
         id: task.id,
@@ -23,9 +25,11 @@ const notifyAssignment = async (io, connectedUsers, assigneeId, task) => {
         priority: task.priority,
         dueDate: task.dueDate,
       },
+      id: dbNotification.id,
+      createdAt: dbNotification.createdAt,
+      isRead: false,
       timestamp: new Date(),
     });
-    io.to(connectedUsers[assigneeId]).emit("notification", dbNotification);
   }
 };
 
@@ -162,6 +166,16 @@ const createTask = async (req, res) => {
 
     const assigneeIds = newTask.assignments.map((a) => a.userId);
     emitTaskEvent(req.io, "taskCreated", newTask, assigneeIds);
+
+    // Notify all admins about the new task (fire-and-forget)
+    const projectName = newTask.project ? newTask.project.name : "Unassigned";
+    const creatorName = newTask.createdBy ? newTask.createdBy.name : "Someone";
+    notifyAdmins(req.io, {
+      message: `New task created: "${newTask.title}" in project "${projectName}" by ${creatorName}`,
+      taskId: newTask.id,
+      actorId: userId,
+      event: "admin_update",
+    }).catch((e) => console.error("Admin task-create notification failed:", e.message));
 
     return res.status(201).json({
       message: "Task created successfully",
@@ -528,6 +542,15 @@ const updateTask = async (req, res) => {
     ];
     emitTaskEvent(req.io, "taskUpdated", updatedTask, affectedAssigneeIds);
 
+    // Notify admins about the task update (fire-and-forget)
+    const updatedProjectName = updatedTask.project ? updatedTask.project.name : "Unassigned";
+    notifyAdmins(req.io, {
+      message: `Task "${updatedTask.title}" in project "${updatedProjectName}" was updated`,
+      taskId: updatedTask.id,
+      actorId: req.user.id,
+      event: "admin_update",
+    }).catch((e) => console.error("Admin task-update notification failed:", e.message));
+
     return res.status(200).json({
       message: "Task updated successfully",
       task: updatedTask,
@@ -571,11 +594,20 @@ const deleteTask = async (req, res) => {
     }
 
     const assigneeIds = task.assignments.map((a) => a.userId);
+    const deletedTaskTitle = task.title;
 
     // Delete the task (Prisma cascade delete handles assignments & comments)
     await prisma.task.delete({ where: { id: taskId } });
 
     emitTaskEvent(req.io, "taskDeleted", taskId, assigneeIds);
+
+    // Notify admins about the deletion (fire-and-forget)
+    notifyAdmins(req.io, {
+      message: `Task "${deletedTaskTitle}" was deleted`,
+      taskId: null,
+      actorId: req.user.id,
+      event: "admin_update",
+    }).catch((e) => console.error("Admin task-delete notification failed:", e.message));
 
     return res.status(200).json({
       message: "Task deleted successfully",
@@ -798,7 +830,8 @@ const updateTaskStatus = async (req, res) => {
     // ════════ Save notifications to database + emit real-time events ═════
     // Use for...of loop (not forEach) to properly await async operations
     const assignedUserIds = updatedTask.assignments.map((a) => a.userId);
-    const notificationMessage = `Task "${updatedTask.title}" status changed to ${updatedTask.status}`;
+    const statusProjectName = updatedTask.project ? updatedTask.project.name : "Unassigned";
+    const notificationMessage = `Task "${updatedTask.title}" (project: "${statusProjectName}") status changed to ${updatedTask.status}`;
 
     for (const assignedUserId of assignedUserIds) {
       // Save notification to database (persistent)
@@ -811,9 +844,9 @@ const updateTaskStatus = async (req, res) => {
         },
       });
 
-      // Emit real-time Socket.io event if user is online
-      if (io && connectedUsers[assignedUserId]) {
-        io.to(connectedUsers[assignedUserId]).emit("task_status_changed", {
+      // Emit real-time Socket.io event via user room (authoritative)
+      if (io) {
+        io.to(`user:${assignedUserId}`).emit("task_status_changed", {
           message: notificationMessage,
           task: {
             id: updatedTask.id,
@@ -821,12 +854,22 @@ const updateTaskStatus = async (req, res) => {
             status: updatedTask.status,
             priority: updatedTask.priority,
           },
+          id: dbNotification.id,
+          createdAt: dbNotification.createdAt,
+          isRead: false,
           timestamp: new Date(),
         });
-        // Emit general notification event
-        io.to(connectedUsers[assignedUserId]).emit("notification", dbNotification);
       }
     }
+
+    // Notify admins about the status change (fire-and-forget)
+    notifyAdmins(io, {
+      message: notificationMessage,
+      taskId: updatedTask.id,
+      actorId: userId,
+      event: "admin_update",
+    }).catch((e) => console.error("Admin status-change notification failed:", e.message));
+
     console.log(
       `✅ Persistent notifications saved + real-time events sent: Task ${taskId} status changed to ${status}`
     );
