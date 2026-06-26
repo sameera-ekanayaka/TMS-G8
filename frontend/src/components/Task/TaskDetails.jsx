@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, User, Calendar, MessageSquare, Paperclip, Send, Download, FileText, Image as ImageIcon, Edit2, Trash2, Check } from 'lucide-react';
 import { getComments, createComment, updateComment, deleteComment, getAttachments, uploadAttachment, deleteAttachment } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -89,15 +89,19 @@ const TaskDetails = ({ task, onClose }) => {
     }
   };
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const fileInputRef = useRef(null);
+  const [selectedFile, setSelectedFile] = useState(null);
 
+  // Attachments are saved independently of comments — pick a file, then click
+  // Upload. The backend notifies the task's participants.
+  const handleUpload = async () => {
+    if (!selectedFile) return;
     setUploading(true);
     try {
-      const response = await uploadAttachment(token, task.id, file);
-      // Access the attachment object from the API response envelope
+      const response = await uploadAttachment(token, task.id, selectedFile);
       setAttachments((prev) => [response.data.attachment, ...prev]);
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (error) {
       console.error('Failed to upload file:', error);
     } finally {
@@ -223,13 +227,23 @@ const TaskDetails = ({ task, onClose }) => {
 
             {/* Attachments Section */}
             <div>
-              <div className="flex justify-between items-center mb-3">
-                <h4 className="ed-section-label" style={{ marginBottom: 0 }}>Attachments</h4>
-                <label className="flex items-center gap-1 cursor-pointer" style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-link)' }}>
-                  <Paperclip size={14} />
-                  <span>Upload File</span>
-                  <input type="file" onChange={handleFileUpload} className="hidden" disabled={uploading} />
-                </label>
+              <h4 className="ed-section-label">Attachments</h4>
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={(e) => setSelectedFile(e.target.files[0] || null)}
+                  disabled={uploading}
+                  className="ed-input"
+                  style={{ flex: 1, minWidth: 150, height: 38, paddingTop: 7, fontSize: 12 }}
+                />
+                <button
+                  onClick={handleUpload}
+                  disabled={!selectedFile || uploading}
+                  className="ed-btn ed-btn-primary ed-btn-sm"
+                >
+                  <Paperclip size={14} /> Upload
+                </button>
               </div>
 
               {uploading && (
@@ -322,9 +336,19 @@ const TaskDetails = ({ task, onClose }) => {
                     style={{ background: 'var(--color-canvas)', border: '1px solid var(--color-hairline)', borderRadius: 'var(--rounded-md)', boxShadow: 'var(--shadow-sm)' }}
                   >
                     <div className="flex items-center justify-between mb-1.5">
-                      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--color-ink)' }}>{comment.user?.name || 'Unknown User'}</span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--color-ink)' }}>{comment.user?.name || 'Unknown User'}</span>
+                        {comment.user?.role && (
+                          <span style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--color-muted)', background: 'var(--color-surface-strong)', borderRadius: 'var(--rounded-full)', padding: '1px 6px', whiteSpace: 'nowrap' }}>
+                            {comment.user.role.replace(/_/g, ' ')}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2">
-                        <span style={{ fontSize: 10, color: 'var(--color-faint)' }}>
+                        <span style={{ fontSize: 10, color: 'var(--color-faint)', whiteSpace: 'nowrap' }}>
+                          {comment.updatedAt && (new Date(comment.updatedAt) - new Date(comment.createdAt) > 1000) && (
+                            <span style={{ fontStyle: 'italic', marginRight: 4 }}>(edited)</span>
+                          )}
                           {new Date(comment.createdAt).toLocaleDateString(undefined, {
                             month: 'short',
                             day: 'numeric',

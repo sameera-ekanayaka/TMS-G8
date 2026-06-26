@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MoreVertical, Check, Eye, Edit2, Trash2, Folder, MessageSquare, Calendar } from 'lucide-react';
+import { MoreVertical, Check, Eye, Edit2, Trash2, Folder, MessageSquare, Calendar, Paperclip } from 'lucide-react';
 import { useTasks } from '../../context/TaskContext';
 import { useAuth } from '../../context/AuthContext';
 
@@ -147,9 +147,14 @@ const TaskCard = ({ task, onEdit, onView, canManage = true }) => {
                )}
              </div>
 
-             <div className="flex items-center gap-1 text-[11px] font-medium text-muted">
+             <div className="flex items-center gap-1 text-[11px] font-medium text-muted" title="Comments">
                <MessageSquare size={12} />
-               <span>{task.comments?.length || 0}</span>
+               <span>{task._count?.comments ?? task.comments?.length ?? 0}</span>
+             </div>
+
+             <div className="flex items-center gap-1 text-[11px] font-medium text-muted" title="Attachments">
+               <Paperclip size={12} />
+               <span>{task._count?.attachments ?? 0}</span>
              </div>
           </div>
           

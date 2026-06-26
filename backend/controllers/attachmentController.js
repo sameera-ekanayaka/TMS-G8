@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 
 const prisma = require("../lib/prisma");
+const { notifyTaskParticipants } = require("../services/socketService");
 
 // POST /api/tasks/:id/attachments
 const uploadAttachment = async (req, res) => {
@@ -22,7 +23,7 @@ const uploadAttachment = async (req, res) => {
     // Check task exists
     const task = await prisma.task.findUnique({
       where: { id: taskId },
-      include: { assignments: true },
+      include: { assignments: true, project: { select: { managerId: true } } },
     });
 
     if (!task) {
@@ -53,6 +54,23 @@ const uploadAttachment = async (req, res) => {
         user: { select: { id: true, name: true, email: true } },
       },
     });
+
+    // Notify the task's participants (assignees + project manager) about the new
+    // attachment. Fire-and-forget so it never blocks the upload response.
+    (async () => {
+      try {
+        await notifyTaskParticipants(req.io, req.connectedUsers, {
+          taskId,
+          assigneeIds: task.assignments.map((a) => a.userId),
+          managerId: task.project?.managerId,
+          actorId: userId,
+          message: `A new attachment was added to "${task.title}"`,
+          event: "attachment_added",
+        });
+      } catch (e) {
+        console.error("Attachment notification failed:", e.message);
+      }
+    })();
 
     return res.status(201).json({
       message: "File uploaded successfully",

@@ -31,7 +31,36 @@ const sendUserNotification = async (io, connectedUsers, userId, message) => {
   return dbNotification;
 };
 
+// ── notifyTaskParticipants ────────────────────────────────────────────────────
+// Persist + push a notification to a task's participants (its assignees and the
+// project's manager), excluding the actor. Used for comment edits and attachment
+// uploads so the right people hear about activity on a task.
+const notifyTaskParticipants = async (
+  io,
+  connectedUsers,
+  { taskId, assigneeIds = [], managerId, actorId, message, event = "comment_added" }
+) => {
+  const recipients = new Set([...assigneeIds, managerId].filter(Boolean));
+  recipients.delete(actorId);
+
+  for (const userId of recipients) {
+    const dbNotification = await prisma.notification.create({
+      data: { message, userId, isRead: false, taskId },
+    });
+    if (io) {
+      io.to(`user:${userId}`).emit(event, {
+        message,
+        taskId,
+        id: dbNotification.id,
+        createdAt: dbNotification.createdAt,
+        isRead: false,
+      });
+    }
+  }
+};
+
 module.exports = {
   initializeSocket,
   sendUserNotification,
+  notifyTaskParticipants,
 };
