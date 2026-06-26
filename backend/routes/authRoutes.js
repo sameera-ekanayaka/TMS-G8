@@ -4,7 +4,7 @@
 
 const express = require("express");
 const router = express.Router();
-const { login, resetPassword, getMe, forgotPassword } = require("../controllers/authController");
+const { login, resetPassword, getMe, forgotPassword, changePassword } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 
 /**
@@ -123,5 +123,35 @@ router.post("/reset-password", protect, resetPassword);
  *         description: Unauthorized / invalid session
  */
 router.get("/me", protect, getMe);
+
+/**
+ * @swagger
+ * /api/auth/change-password:
+ *   post:
+ *     summary: Change your own password (authenticated)
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [currentPassword, newPassword]
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password changed
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Current password incorrect
+ */
+router.post("/change-password", protect, changePassword);
 
 module.exports = router;

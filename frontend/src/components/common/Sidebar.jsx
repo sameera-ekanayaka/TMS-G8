@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, List, Folder, Users, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-const Sidebar = () => {
+const Sidebar = ({ open = false, onClose = () => {} }) => {
   const { logout, user } = useAuth();
 
   const navItems = [
@@ -16,14 +16,13 @@ const Sidebar = () => {
       : []),
   ];
 
-  return (
-    <aside
-      className="flex flex-col w-16 md:w-[248px] shrink-0 h-screen"
-      style={{ background: 'var(--color-canvas)', borderRight: '1px solid var(--color-hairline)' }}
-    >
+  // Shared inner content. onNavigate fires after a link is clicked (used to close
+  // the mobile drawer).
+  const Inner = ({ onNavigate }) => (
+    <>
       {/* Brand */}
       <div
-        className="h-16 flex items-center px-3 md:px-6 shrink-0"
+        className="h-16 flex items-center px-6 shrink-0"
         style={{ borderBottom: '1px solid var(--color-hairline)' }}
       >
         <div className="flex items-center gap-2.5">
@@ -33,7 +32,7 @@ const Sidebar = () => {
           >
             <span style={{ color: 'var(--color-on-primary)', fontWeight: 600, fontSize: 15 }}>T</span>
           </div>
-          <div className="hidden md:block leading-tight">
+          <div className="leading-tight">
             <h1 style={{ color: 'var(--color-ink)', fontWeight: 600, fontSize: 16, margin: 0 }}>TaskHub</h1>
             <p style={{ color: 'var(--color-muted)', fontSize: 11, margin: 0 }}>Task Management</p>
           </div>
@@ -41,12 +40,12 @@ const Sidebar = () => {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-2 md:px-3 py-4 space-y-1 overflow-y-auto ed-scroll">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto ed-scroll">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
-            title={item.label}
+            onClick={onNavigate}
             className={({ isActive }) =>
               `relative flex items-center gap-3 px-3 py-2.5 transition-colors ${isActive ? 'ed-nav-active' : 'ed-nav-idle'}`
             }
@@ -65,10 +64,7 @@ const Sidebar = () => {
                   }}
                 />
                 <item.icon size={19} style={{ color: isActive ? 'var(--color-ink)' : 'var(--color-muted)', flexShrink: 0 }} />
-                <span
-                  className="hidden md:inline"
-                  style={{ color: isActive ? 'var(--color-ink)' : 'var(--color-body)', fontWeight: isActive ? 500 : 400, fontSize: 14 }}
-                >
+                <span style={{ color: isActive ? 'var(--color-ink)' : 'var(--color-body)', fontWeight: isActive ? 500 : 400, fontSize: 14 }}>
                   {item.label}
                 </span>
               </>
@@ -78,18 +74,48 @@ const Sidebar = () => {
       </nav>
 
       {/* Logout */}
-      <div className="px-2 md:px-3 py-3 shrink-0" style={{ borderTop: '1px solid var(--color-hairline)' }}>
+      <div className="px-3 py-3 shrink-0" style={{ borderTop: '1px solid var(--color-hairline)' }}>
         <button
           onClick={logout}
-          title="Logout"
           className="ed-logout flex items-center gap-3 w-full px-3 py-2.5 transition-colors"
           style={{ color: 'var(--color-danger)', borderRadius: 'var(--rounded-md)' }}
         >
           <LogOut size={19} style={{ flexShrink: 0 }} />
-          <span className="hidden md:inline" style={{ fontSize: 14, fontWeight: 500 }}>Logout</span>
+          <span style={{ fontSize: 14, fontWeight: 500 }}>Logout</span>
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop: static sidebar (md and up) */}
+      <aside
+        className="hidden md:flex flex-col w-[248px] shrink-0 h-screen"
+        style={{ background: 'var(--color-canvas)', borderRight: '1px solid var(--color-hairline)' }}
+      >
+        <Inner onNavigate={() => {}} />
+      </aside>
+
+      {/* Mobile: slide-in drawer + backdrop (below md) */}
+      <div className={`md:hidden fixed inset-0 z-40 ${open ? '' : 'pointer-events-none'}`} aria-hidden={!open}>
+        <div
+          className="absolute inset-0 transition-opacity duration-200"
+          style={{ background: 'rgba(24,29,38,0.45)', opacity: open ? 1 : 0 }}
+          onClick={onClose}
+        />
+        <aside
+          className="absolute left-0 top-0 h-full w-[248px] flex flex-col transition-transform duration-200"
+          style={{
+            background: 'var(--color-canvas)',
+            borderRight: '1px solid var(--color-hairline)',
+            transform: open ? 'translateX(0)' : 'translateX(-100%)',
+          }}
+        >
+          <Inner onNavigate={onClose} />
+        </aside>
+      </div>
+    </>
   );
 };
 
