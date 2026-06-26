@@ -78,7 +78,7 @@ export default function Projects() {
     project.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const projectManagers = users.filter((u) => u.role === "PROJECT_MANAGER");
+  const projectManagers = users.filter((u) => u.role === "PROJECT_MANAGER" && u.isActive);
 
   function openCreateModal() {
     setEditingProject(null);

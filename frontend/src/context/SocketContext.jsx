@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import io from 'socket.io-client';
+import toast from 'react-hot-toast';
 import { useAuth } from './AuthContext';
 
 const SocketContext = createContext();
@@ -10,7 +11,7 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
-  const { token } = useAuth();
+  const { token, logout } = useAuth();
 
   useEffect(() => {
     if (!token) {
@@ -52,6 +53,13 @@ export const SocketProvider = ({ children }) => {
     newSocket.on('notification', (data) => {
       console.log('🔔 New notification:', data);
       setNotifications(prev => [data, ...prev]);
+    });
+
+    // Server asks this session to re-authenticate (e.g. the admin changed the
+    // user's role — the role is baked into the JWT, so a fresh login is needed).
+    newSocket.on('force_logout', (data) => {
+      toast(data?.message || 'Your session has changed. Please log in again.', { icon: '🔄', duration: 6000 });
+      logout();
     });
 
     // NOTE: task events (taskCreated/taskUpdated/taskDeleted/task_status_changed)

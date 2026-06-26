@@ -40,6 +40,13 @@ const createProject = async (req, res) => {
           message: "Assigned manager user not found",
         });
       }
+
+      if (!managerUser.isActive) {
+        return res.status(400).json({
+          error: "Validation Error",
+          message: "Cannot assign a deactivated user as project manager.",
+        });
+      }
     }
 
     // Smart Manager Default:
@@ -237,6 +244,13 @@ const updateProject = async (req, res) => {
           return res.status(404).json({
             error: "Not Found",
             message: "Assigned manager user not found",
+          });
+        }
+
+        if (!managerUser.isActive) {
+          return res.status(400).json({
+            error: "Validation Error",
+            message: "Cannot assign a deactivated user as project manager.",
           });
         }
       }
