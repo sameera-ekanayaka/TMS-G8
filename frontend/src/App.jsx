@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { TaskProvider } from "./context/TaskContext";
 import { SocketProvider } from "./context/SocketContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import { ToastProvider } from "./context/ToastContext";
 import Sidebar from "./components/common/Sidebar";
 import Navbar from "./components/common/Navbar";
 
@@ -124,12 +125,14 @@ export default function App() {
       <AuthProvider>
         <SocketProvider>
           <TaskProvider>
-            <BrowserRouter>
-              <Toaster position="top-right" />
-              <Suspense fallback={<PageLoader />}>
-                <AppRoutes />
-              </Suspense>
-            </BrowserRouter>
+            <ToastProvider>
+              <BrowserRouter>
+                <Toaster position="top-right" />
+                <Suspense fallback={<PageLoader />}>
+                  <AppRoutes />
+                </Suspense>
+              </BrowserRouter>
+            </ToastProvider>
           </TaskProvider>
         </SocketProvider>
       </AuthProvider>

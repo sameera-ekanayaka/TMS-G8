@@ -20,6 +20,7 @@ const Tasks = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [myTasksOnly, setMyTasksOnly] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [viewingTask, setViewingTask] = useState(null);
   const [viewMode, setViewMode] = useState('board'); // 'table', 'board'
@@ -108,6 +109,7 @@ const Tasks = () => {
 
   const filteredTasks = tasks.filter(task => {
     if (urlProjectId && task.projectId !== urlProjectId) return false;
+    if (myTasksOnly && !task.assignedUsers?.some(u => u.id === user?.id)) return false;
     if (!searchTerm) return true;
     return task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
            task.description?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -190,6 +192,23 @@ const Tasks = () => {
           >
             <Filter size={17} />
             Filters
+          </button>
+
+          {/* My Tasks Only toggle */}
+          <button
+            onClick={() => setMyTasksOnly(!myTasksOnly)}
+            className="ed-btn"
+            style={myTasksOnly ? {
+              background: 'var(--color-primary)',
+              color: 'var(--color-on-primary)',
+              border: '1px solid var(--color-primary)',
+            } : {
+              background: 'var(--color-surface-soft)',
+              color: 'var(--color-ink)',
+              border: '1px solid var(--color-hairline-strong)',
+            }}
+          >
+            My Tasks{myTasksOnly ? ' ✓' : ''}
           </button>
 
           {/* View Toggle — segmented control */}
@@ -296,6 +315,7 @@ const Tasks = () => {
             <TaskTable
               tasks={filteredTasks}
               canManage={canManage}
+              currentUserId={user?.id}
               onView={(task) => setViewingTask(task)}
               onEdit={(task) => {
                 setEditingTask(task);
@@ -384,6 +404,7 @@ const Tasks = () => {
                                     <TaskCard
                                       task={task}
                                       canManage={canManage}
+                                      currentUserId={user?.id}
                                       onView={() => setViewingTask(task)}
                                       onEdit={() => {
                                         setEditingTask(task);

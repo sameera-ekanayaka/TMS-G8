@@ -2,11 +2,18 @@ import React, { useState } from 'react';
 import { MoreVertical, Check, Eye, Edit2, Trash2, Folder, MessageSquare, Calendar, Paperclip } from 'lucide-react';
 import { useTasks } from '../../context/TaskContext';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 
-const TaskCard = ({ task, onEdit, onView, canManage = true }) => {
+const TaskCard = ({ task, onEdit, onView, canManage = true, currentUserId }) => {
   const { changeTaskStatus, removeTask } = useTasks();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [showMenu, setShowMenu] = useState(false);
+
+  const isMyTask = currentUserId
+    ? (task.assignedUsers || []).some((u) => u.id === currentUserId)
+    : false;
+  const isCollaborator = user?.role === 'COLLABORATOR';
 
   const priorityBadgeClass = (priority) => {
     const map = { High: 'ed-badge-high', Medium: 'ed-badge-medium', Low: 'ed-badge-low' };
@@ -20,6 +27,11 @@ const TaskCard = ({ task, onEdit, onView, canManage = true }) => {
   };
 
   const handleStatusChange = async (status) => {
+    if (isCollaborator && !isMyTask) {
+      showToast("You can only change the status of tasks assigned to you.", "warning");
+      setShowMenu(false);
+      return;
+    }
     await changeTaskStatus(task.id, status);
     setShowMenu(false);
   };
@@ -33,15 +45,40 @@ const TaskCard = ({ task, onEdit, onView, canManage = true }) => {
   const assignees = task.assignedUsers || [];
 
   return (
-    <div className="bg-canvas rounded-md p-4 shadow-sm hover:shadow-md transition-all duration-200 relative group border border-hairline">
+    <div
+      className="rounded-md p-4 shadow-sm hover:shadow-md transition-all duration-200 relative group border border-hairline"
+      style={{
+        background: 'var(--color-canvas)',
+        borderLeft: isMyTask ? '4px solid var(--color-primary)' : undefined,
+      }}
+    >
       <div
         className={`flex flex-col h-full ${onView ? 'cursor-pointer' : ''}`}
         onClick={() => onView && onView()}
       >
         <div className="flex justify-between items-start mb-3">
-          <span className={priorityBadgeClass(task.priority)}>
-            {task.priority}
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className={priorityBadgeClass(task.priority)}>
+              {task.priority}
+            </span>
+            {isMyTask && (
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.04em',
+                  padding: '2px 8px',
+                  borderRadius: 'var(--rounded-full)',
+                  background: 'var(--color-primary)',
+                  color: 'var(--color-on-primary)',
+                  textTransform: 'uppercase',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                My Task
+              </span>
+            )}
+          </div>
           
           {/* Actions Button */}
           <div className="relative" onClick={(e) => e.stopPropagation()}>

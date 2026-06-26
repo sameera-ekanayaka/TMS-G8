@@ -3,7 +3,7 @@ import { useTasks } from '../../context/TaskContext';
 import { Edit2, Trash2, CheckSquare } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-const TaskTable = ({ tasks, onEdit, onView, canManage = true }) => {
+const TaskTable = ({ tasks, onEdit, onView, canManage = true, currentUserId }) => {
   const { changeTaskStatus, removeTask } = useTasks();
   const { user } = useAuth();
   const [sortField, setSortField] = useState('priority');
@@ -92,8 +92,16 @@ const TaskTable = ({ tasks, onEdit, onView, canManage = true }) => {
             </tr>
           </thead>
           <tbody>
-            {sortedTasks.map((task) => (
-              <tr key={task.id} className="border-b border-borderstrong/10 hover:bg-surface-soft transition-colors group">
+            {sortedTasks.map((task) => {
+              const isMyTask = currentUserId
+                ? (task.assignedUsers || []).some((u) => u.id === currentUserId)
+                : false;
+              return (
+              <tr
+                key={task.id}
+                className="border-b border-borderstrong/10 hover:bg-surface-soft transition-colors group"
+                style={isMyTask ? { borderLeft: '3px solid var(--color-primary)' } : {}}
+              >
                 <td className="py-4 pr-4">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-md bg-surface-strong flex items-center justify-center text-muted shrink-0 border border-borderstrong/20">
@@ -103,7 +111,26 @@ const TaskTable = ({ tasks, onEdit, onView, canManage = true }) => {
                       className={onView ? 'cursor-pointer' : ''}
                       onClick={() => onView && onView(task)}
                     >
-                      <p className="font-normal text-[15px] text-ink tracking-tight leading-snug hover:text-link transition-colors">{task.title}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-normal text-[15px] text-ink tracking-tight leading-snug hover:text-link transition-colors">{task.title}</p>
+                        {isMyTask && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              letterSpacing: '0.04em',
+                              padding: '2px 7px',
+                              borderRadius: 'var(--rounded-full)',
+                              background: 'var(--color-primary)',
+                              color: 'var(--color-on-primary)',
+                              textTransform: 'uppercase',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            My Task
+                          </span>
+                        )}
+                      </div>
                       {task.project && (
                         <p className="text-[12px] font-medium text-muted mt-0.5">{task.project.name}</p>
                       )}
@@ -162,7 +189,8 @@ const TaskTable = ({ tasks, onEdit, onView, canManage = true }) => {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
