@@ -58,6 +58,7 @@ npm run dev
 
 ## Documentation & Diagrams
 - **API docs:** Swagger UI at `/api-docs` on the backend (link above).
+- **Class diagram:** [`docs/class diagram.png`](docs/class%20diagram.png)
 - **ER diagram:** [`docs/er-diagram.png`](docs/er-diagram.png)
 - **Deployment diagram:** [`docs/deployment-diagram.png`](docs/deployment-diagram.png)
 - **Database design:** [`docs/database_design.md`](docs/database_design.md) (aligns with Prisma schema).
