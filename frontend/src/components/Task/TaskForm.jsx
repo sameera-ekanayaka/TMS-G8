@@ -8,7 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 
 const roleLabels = { ADMIN: 'Admin', PROJECT_MANAGER: 'Project Manager', COLLABORATOR: 'Collaborator' };
 
-const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
+const TaskForm = ({ task, onClose, onSuccess, initialStatus, initialProjectId }) => {
   const { addTask, editTask } = useTasks();
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
@@ -21,7 +21,7 @@ const TaskForm = ({ task, onClose, onSuccess, initialStatus }) => {
     dueDate: '',
     priority: 'Medium',
     status: initialStatus || 'To Do',
-    projectId: '',
+    projectId: initialProjectId || '',
   });
 
   const { token } = useAuth();

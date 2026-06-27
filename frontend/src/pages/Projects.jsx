@@ -82,7 +82,11 @@ export default function Projects() {
 
   function openCreateModal() {
     setEditingProject(null);
-    setFormData({ name: "", description: "", managerId: "" });
+    setFormData({ 
+      name: "", 
+      description: "", 
+      managerId: user?.role === 'PROJECT_MANAGER' ? user.id.toString() : "" 
+    });
     setFormError("");
     setShowModal(true);
   }

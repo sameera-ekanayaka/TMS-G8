@@ -430,6 +430,7 @@ const Tasks = () => {
       {showTaskForm && (
         <TaskForm
           task={editingTask}
+          initialProjectId={urlProjectId}
           onClose={() => {
             setShowTaskForm(false);
             setEditingTask(null);
